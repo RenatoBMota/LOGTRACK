@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% block title %}SLA Dashboard - LogTrack{% endblock %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>📊 Dashboard SLA</h2>
+    <p style="color: #999;">Monitoramento de nível de serviço por operação</p>
+    
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <!-- ✅ CORRIGIDO: FORM para enviar POST -->
+        <form method="POST">
+        <div class="row">
+            <div class="col-md-2"><input type="date" class="form-control" name="filter_date_from" id="dataFrom" value="{{ filter_date_from_display or today_date or "" }}" placeholder="Data De"></div>
+            <div class="col-md-2"><input type="date" class="form-control" name="filter_date_to" id="dataTo" value="{{ filter_date_to_display or today_date or "" }}" placeholder="Data Até"></div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterUnit">
+                    <option value="">Todas as unidades</option>
+                    {% for unit in units %}
+                    <option value="{{ unit.id }}">{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterLocation">
+                    <option value="">Todos os locais</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc.id }}">{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterType">
+                    <option value="">Todos os tipos</option>
+                    <option value="Venda">Venda</option>
+                    <option value="Transferência">Transferência</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100" style="background: linear-gradient(135deg, #0066CC, #1aa84a); border: none;">🔍 Filtrar</button>
+            </div>
+        </div>
+        </form>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #0066CC; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <p style="color: #0066CC; font-size: 0.85em; font-weight: 600;">FINALIZADOS HOJE</p>
+                <h3 style="color: #0066CC; margin: 10px 0;" id="finalizadosHoje">{{ finalizados_hoje }}</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1aa84a; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <p style="color: #1aa84a; font-size: 0.85em; font-weight: 600;">DENTRO DO SLA</p>
+                <h3 style="color: #1aa84a; margin: 10px 0;" id="dentroDaSLA">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <p style="color: #dc3545; font-size: 0.85em; font-weight: 600;">VIOLAÇÕES</p>
+                <h3 style="color: #dc3545; margin: 10px 0;" id="violacoes">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <p style="color: #ffc107; font-size: 0.85em; font-weight: 600;">EM ANDAMENTO AGORA</p>
+                <h3 style="color: #ffc107; margin: 10px 0;" id="emAndamento">0</h3>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ✅ MELHORIA #6: Gráfico Compliance + Ranking de Violações lado a lado -->
+    <div class="row">
+        <div class="col-md-6">
+            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h5 style="margin-bottom: 20px; color: #333;">Compliance SLA — últimos 7 dias</h5>
+                <canvas id="complianceChart" style="max-height: 300px;"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h5 style="margin-bottom: 20px; color: #333;">⚠️ Ranking de Violações por Colaborador</h5>
+                <div style="padding: 10px 0;">
+                    {% if violations_ranking %}
+                        <table class="table table-sm table-striped" style="margin-bottom: 0;">
+                            <thead style="background: #f8f9fa;">
+                                <tr>
+                                    <th style="width: 50%;">Colaborador</th>
+                                    <th style="width: 20%;">Violações</th>
+                                    <th style="width: 30%;">Taxa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in violations_ranking %}
+                                <tr>
+                                    <td>
+                                        <span style="font-weight: 600;">{{ item.separator }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger">{{ item.violations }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="flex: 1; background: #e9ecef; border-radius: 4px; height: 20px; overflow: hidden;">
+                                                <div style="background: {% if item.percentage > 50 %}#dc3545{% elif item.percentage > 25 %}#ffc107{% else %}#1aa84a{% endif %}; height: 100%; width: {{ item.percentage }}%; transition: width 0.3s;"></div>
+                                            </div>
+                                            <span style="font-size: 0.85em; font-weight: 600;">{{ item.percentage }}%</span>
+                                        </div>
+                                        <span style="font-size: 0.75em; color: #666;">{{ item.violations }}/{{ item.total_operations }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p style="color: #999; text-align: center; padding: 20px;">Nenhuma violação registrada</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Converter operações para JSON seguro
+const operationsData = [
+    {% for op in operations %}
+    {
+        id: {{ op.id }},
+        load_number: '{{ op.load_number }}',
+        status: '{{ op.status }}',
+        duration_minutes: {{ op.duration_minutes or 0 }},
+        sku_count: {{ op.sku_count or 0 }},
+        weight_kg: {{ op.weight_kg or 0 }},
+        created_date: '{{ op.created_date.isoformat() if op.created_date else '' }}',
+        unit_id: {{ op.unit_id or 'null' }},
+        location_id: {{ op.location_id or 'null' }},
+        operation_type: '{{ op.operation_type or '' }}'
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// Converter metas SLA para JSON
+const slaGoalsData = [
+    {% for goal in sla_goals %}
+    {
+        id: {{ goal.id }},
+        name: '{{ goal.name }}',
+        metric: '{{ goal.metric }}',
+        target_value: {{ goal.target_value }},
+        unit: '{{ goal.unit }}'
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// Converter minutos para HH:MM:SS
+function minutesToHHMMSS(minutes) {
+    if (minutes === null || minutes === undefined || isNaN(minutes)) {
+        return '--:--:--';
+    }
+    const totalSeconds = minutes * 60;
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = Math.floor(totalSeconds % 60);
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+// Obter operações filtradas
+function getFilteredSLAOperations() {
+    const dataFrom = document.getElementById('dataFrom').value;
+    const dataTo = document.getElementById('dataTo').value;
+    const unitId = document.getElementById('filterUnit').value;
+    const locationId = document.getElementById('filterLocation').value;
+    const operationType = document.getElementById('filterType').value;
+    
+    return operationsData.filter(op => {
+        // Apenas finalizadas
+        if (op.status !== 'Finalizado') return false;
+        
+        // Filtros
+        if (dataFrom || dataTo) {
+            const opDate = op.created_date ? new Date(op.created_date).toISOString().split('T')[0] : null;
+            if (dataFrom && opDate < dataFrom) return false;
+            if (dataTo && opDate > dataTo) return false;
+        }
+        if (unitId && op.unit_id !== parseInt(unitId)) return false;
+        if (locationId && op.location_id !== parseInt(locationId)) return false;
+        if (operationType && op.operation_type !== operationType) return false;
+        
+        return true;
+    });
+}
+
+// Atualizar dashboard SLA
+function updateSLADashboard() {
+    const filtered = getFilteredSLAOperations();
+    const emAndamento = operationsData.filter(op => op.status === 'Em Andamento').length;
+    
+    let dentroDaSLA = 0;
+    let violacoes = 0;
+    
+    // Buscar meta de tempo por carga (40 min)
+    const metaCarga = slaGoalsData.find(g => g.metric === 'tempo_medio_carregamento');
+    const metaValue = metaCarga ? metaCarga.target_value : 40;
+    
+    filtered.forEach(op => {
+        if (op.duration_minutes !== null) {
+            if (op.duration_minutes <= metaValue) {
+                dentroDaSLA++;
+            } else {
+                violacoes++;
+            }
+        }
+    });
+    
+    // Atualizar números
+    document.getElementById('finalizadosHoje').textContent = filtered.length;
+    document.getElementById('dentroDaSLA').textContent = dentroDaSLA;
+    document.getElementById('violacoes').textContent = violacoes;
+    document.getElementById('emAndamento').textContent = emAndamento;
+    
+    // ✅ CORRIGIDO: Remover chamada para displaySLAGoals (elemento 'metasContainer' foi removido na Melhoria #6)
+    // displaySLAGoals();
+}
+
+// ✅ CORRIGIDO: Função removida - 'metasContainer' não existe mais na Melhoria #6
+/*
+function displaySLAGoals() {
+    let html = '<div style="padding: 10px 0;">';
+    
+    slaGoalsData.slice(0, 5).forEach(goal => {
+        const displayValue = goal.unit.includes('min') ? minutesToHHMMSS(goal.target_value) : goal.target_value;
+        const colors = ['#0066CC', '#1aa84a', '#ffc107', '#17a2b8', '#dc3545'];
+        const color = colors[slaGoalsData.indexOf(goal) % colors.length];
+        
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <strong style="color: #333;">🎯 ${goal.name}</strong>
+                    <span style="color: ${color}; font-family: 'Courier New', monospace; font-weight: bold;">
+                        ${displayValue}
+                    </span>
+                </div>
+                <div style="background: #f0f0f0; height: 6px; border-radius: 3px;">
+                    <div style="background: ${color}; height: 100%; width: 60%; border-radius: 3px;"></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    document.getElementById('metasContainer').innerHTML = html;
+}
+*/
+
+// Gráfico de compliance
+let complianceChartInstance = null;
+
+function updateComplianceChart() {
+    const ctx = document.getElementById('complianceChart');
+    if (!ctx) return;
+    
+    // Obter operações filtradas
+    const filtered = getFilteredSLAOperations();
+    
+    if (filtered.length === 0) {
+        // Se nenhuma operação, mostrar gráfico vazio
+        if (complianceChartInstance) {
+            complianceChartInstance.destroy();
+        }
+        complianceChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'],
+                datasets: [{
+                    label: 'Conformidade (%)',
+                    data: [0, 0, 0, 0, 0, 0, 0],
+                    backgroundColor: '#ccc'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { max: 100 }
+                }
+            }
+        });
+        return;
+    }
+    
+    // Agrupar operações por data
+    const complianceByDate = {};
+    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+    
+    // Buscar meta de carregamento (40 min)
+    const metaCarga = slaGoalsData.find(g => g.metric === 'tempo_medio_carregamento');
+    const metaValue = metaCarga ? metaCarga.target_value : 40;
+    
+    // Processar operações filtradas
+    filtered.forEach(op => {
+        if (op.duration_minutes !== null) {
+            const opDate = new Date(op.created_date).toISOString().split('T')[0];
+            
+            if (!complianceByDate[opDate]) {
+                const dateObj = new Date(op.created_date);
+                const dayName = dayNames[dateObj.getDay()];
+                complianceByDate[opDate] = { total: 0, dentro: 0, day: dayName };
+            }
+            
+            complianceByDate[opDate].total++;
+            if (op.duration_minutes <= metaValue) {
+                complianceByDate[opDate].dentro++;
+            }
+        }
+    });
+    
+    // Ordenar por data e pegar últimos 7 dias (ou todos se menos de 7)
+    const sortedDates = Object.keys(complianceByDate).sort();
+    const last7Days = sortedDates.slice(Math.max(0, sortedDates.length - 7));
+    
+    // Calcular percentuais
+    const labels = [];
+    const percentuais = [];
+    
+    last7Days.forEach(date => {
+        const day = complianceByDate[date];
+        labels.push(day.day);
+        const percentual = day.total > 0 ? Math.round((day.dentro / day.total) * 100) : 0;
+        percentuais.push(percentual);
+    });
+    
+    // Destruir gráfico anterior se existir
+    if (complianceChartInstance) {
+        complianceChartInstance.destroy();
+    }
+    
+    complianceChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Conformidade (%)',
+                data: percentuais,
+                backgroundColor: '#0066CC'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { max: 100 }
+            }
+        }
+    });
+}
+
+// Inicializar ao carregar
+document.addEventListener('DOMContentLoaded', function() {
+    updateSLADashboard();
+    updateComplianceChart();
+});
+
+// Atualizar ao mudar filtros
+document.getElementById('dataFrom').addEventListener('change', function() {
+    updateSLADashboard();
+    updateComplianceChart();
+});
+document.getElementById('dataTo').addEventListener('change', function() {
+    updateSLADashboard();
+    updateComplianceChart();
+});
+document.getElementById('filterUnit').addEventListener('change', function() {
+    updateSLADashboard();
+    updateComplianceChart();
+});
+document.getElementById('filterLocation').addEventListener('change', function() {
+    updateSLADashboard();
+    updateComplianceChart();
+});
+document.getElementById('filterType').addEventListener('change', function() {
+    updateSLADashboard();
+    updateComplianceChart();
+});
+</script>
+
+{% endblock %}

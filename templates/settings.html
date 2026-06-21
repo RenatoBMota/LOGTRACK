@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>⚙️ Configurações</h2>
+    <div class="card" style="max-width: 600px;">
+        <div class="card-header" style="background: #0066CC; color: white;"><h5 style="margin: 0;">Editar Configurações</h5></div>
+        <div class="card-body">
+            <form method="POST" action="/settings/save" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label>Nome do Sistema</label>
+                    <input type="text" class="form-control" name="app_name" value="{{ config.app_name or 'Monitor' }}" required>
+                </div>
+                <div class="mb-3">
+                    <label>Descrição</label>
+                    <textarea class="form-control" name="app_description" rows="3">{{ config.app_description or '' }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label>Logo (PNG, JPG)</label>
+                    <input type="file" class="form-control" name="logo" accept="image/png,image/jpeg">
+                    {% if config.logo_filename %}<p style="font-size: 0.9em; color: #666;">Logo atual: {{ config.logo_filename }}</p>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label>Cor Primária</label>
+                    <input type="color" class="form-control" name="primary_color" value="{{ config.primary_color or '#0066CC' }}" style="height: 50px;">
+                </div>
+                <div class="mb-3">
+                    <label>Cor Secundária</label>
+                    <input type="color" class="form-control" name="secondary_color" value="{{ config.secondary_color or '#1aa84a' }}" style="height: 50px;">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Salvar Configurações</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}

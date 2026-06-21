@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>⚠️ Ocorrências</h2>
+    
+    <!-- ✅ MELHORIA #5: Filtros -->
+    <div class="card mb-3" style="background: #f8f9fa; padding: 15px;">
+        <form method="POST" id="filterForm">
+            <div class="row">
+                <div class="col-md-3">
+                    <label>🔍 Unidade:</label>
+                    <select class="form-control" name="unit_filter" onchange="document.getElementById('filterForm').submit()">
+                        <option value="">Todas as unidades</option>
+                        {% for unit in units %}
+                        <option value="{{ unit.id }}">{{ unit.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>👤 Separador:</label>
+                    <select class="form-control" name="separator_filter" onchange="document.getElementById('filterForm').submit()">
+                        <option value="">Todos os separadores</option>
+                        {% for sep in separators %}
+                        <option value="{{ sep.id }}">{{ sep.full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>📋 Tipo de Ocorrência:</label>
+                    <select class="form-control" name="occ_type_filter" onchange="document.getElementById('filterForm').submit()">
+                        <option value="">Todos os tipos</option>
+                        {% for oc_type in occurrence_types %}
+                        <option value="{{ oc_type.id }}">{{ oc_type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>&nbsp;</label><br>
+                    <a href="/occurrence-report" class="btn btn-sm btn-secondary">🔄 Limpar Filtros</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <a href="/occurrence-report/export" class="btn btn-primary mb-3">📥 Exportar Excel</a>
+    
+    <table class="table table-striped">
+        <thead style="background: #f8f9fa;">
+            <tr>
+                <th>Carga</th>
+                <th>Código Item</th>
+                <th>Descrição</th>
+                <th>Qtd</th>
+                <th>Tipo</th>
+                <th>Unidade</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for oc in occurrences %}
+            <tr>
+                <td>{{ oc.load_operation_id }}</td>
+                <td>{{ oc.item_code }}</td>
+                <td>{{ oc.description }}</td>
+                <td>{{ oc.quantity }}</td>
+                <td><span class="badge bg-warning text-dark">{{ oc.occurrence_type }}</span></td>
+                <td>
+                    {% set op = operations | selectattr('id', 'equalto', oc.load_operation_id) | list %}
+                    {% if op %}{{ op[0].unit_name }}{% else %}-{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align: center; color: #999; padding: 20px;">Nenhuma ocorrência encontrada</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+// Filtrar ocorrências no cliente também (para feedback imediato)
+document.querySelectorAll('[name="unit_filter"], [name="separator_filter"], [name="occ_type_filter"]').forEach(select => {
+    select.addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+});
+</script>
+{% endblock %}

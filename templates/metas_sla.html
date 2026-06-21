@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Metas SLA - LogTrack{% endblock %}
+{% block content %}
+
+<div style="padding: 20px;">
+    <h2>🎯 Configuração de Metas SLA</h2>
+    <p style="color: #999;">Edite as metas padrão do sistema - Formato de tempo: HH:MM:SS</p>
+    
+    <!-- Metas Padrão -->
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h5 style="margin-bottom: 25px; color: #333;">📌 Metas Padrão do Sistema (Editáveis)</h5>
+        <div class="row">
+            {% for goal in goals %}
+            {% if loop.index <= 5 %}
+            <div class="col-md-6 mb-4">
+                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); padding: 20px; border-radius: 12px; border-left: 5px solid #0066CC; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s ease;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                        <div style="flex: 1;">
+                            <strong style="font-size: 1.1em; color: #333;">{{ goal.name }}</strong>
+                            
+                            <!-- Mostrar tempo em HH:MM:SS para metas de tempo -->
+                            {% if 'min' in goal.unit.lower() or 'tempo' in goal.name.lower() %}
+                                <p style="color: #0066CC; font-size: 2em; margin: 12px 0; font-weight: bold; font-family: 'Courier New', monospace;">
+                                    {{ '%02d:%02d:%02d' | format((goal.target_value * 60) | int // 3600, ((goal.target_value * 60) | int % 3600) // 60, (goal.target_value * 60) | int % 60) }}
+                                </p>
+                            {% else %}
+                                <p style="color: #0066CC; font-size: 2em; margin: 12px 0; font-weight: bold;">
+                                    {{ goal.target_value }} <span style="font-size: 0.5em;">{{ goal.unit }}</span>
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <form method="POST" action="/sla-goals/{{ goal.id }}/edit" style="margin-top: 15px;">
+                        <div style="display: flex; gap: 8px;">
+                            {% if 'min' in goal.unit.lower() or 'tempo' in goal.name.lower() %}
+                                <!-- Input de tempo em HH:MM:SS -->
+                                <input type="text" class="form-control" name="value" 
+                                       placeholder="HH:MM:SS" 
+                                       pattern="^\d{1,2}:\d{2}:\d{2}$"
+                                       value="{{ '%02d:%02d:%02d' | format((goal.target_value * 60) | int // 3600, ((goal.target_value * 60) | int % 3600) // 60, (goal.target_value * 60) | int % 60) }}"
+                                       required 
+                                       style="border-radius: 6px; flex: 1; padding: 10px; font-family: 'Courier New', monospace; border: 2px solid #ddd;"
+                                       title="Use o formato HH:MM:SS (ex: 00:02:30 para 2 minutos e 30 segundos)">
+                            {% else %}
+                                <input type="number" class="form-control" name="value" value="{{ goal.target_value }}" step="0.1" required style="border-radius: 6px; flex: 1; padding: 10px;">
+                            {% endif %}
+                            
+                            <button type="submit" class="btn btn-primary" style="border-radius: 6px; background: linear-gradient(135deg, #0066CC, #1a8917); border: none; padding: 10px 20px; white-space: nowrap;">
+                                ✏️ Editar
+                            </button>
+                        </div>
+                        <small style="color: #999; margin-top: 5px; display: block;">
+                            {% if 'min' in goal.unit.lower() or 'tempo' in goal.name.lower() %}
+                                Formato: HH:MM:SS
+                            {% else %}
+                                Formato: Número decimal
+                            {% endif %}
+                        </small>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Aviso sobre Metas Padrão -->
+    <div style="background: #e8f4f8; border-left: 4px solid #0066CC; padding: 15px; border-radius: 6px; margin-bottom: 30px;">
+        <p style="margin: 0; color: #0066CC; font-weight: 600;">
+            ℹ️ O sistema trabalha apenas com as 5 metas padrão listadas acima. Você pode editar os valores, mas não é possível adicionar novas metas customizadas.
+        </p>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa !important;
+    }
+    
+    .form-control:focus {
+        border-color: #0066CC;
+        box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+    }
+    
+    .btn {
+        transition: all 0.2s ease;
+    }
+    
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+</style>
+
+<script>
+    // Converter entrada de tempo HH:MM:SS para minutos
+    document.querySelectorAll('input[placeholder="HH:MM:SS"]').forEach(input => {
+        input.addEventListener('change', function() {
+            const parts = this.value.split(':');
+            if (parts.length === 3) {
+                const hours = parseInt(parts[0]) || 0;
+                const minutes = parseInt(parts[1]) || 0;
+                const seconds = parseInt(parts[2]) || 0;
+                const totalMinutes = hours * 60 + minutes + (seconds / 60);
+                this.value = this.value; // Manter formato original
+            }
+        });
+    });
+</script>
+
+{% endblock %}

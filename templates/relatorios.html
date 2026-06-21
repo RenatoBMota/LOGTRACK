@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>📊 Relatórios</h2>
+    
+    <!-- ABAS DE RELATÓRIOS -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#operacoes">Operações</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ocorrencias">Ocorrências</a></li>
+    </ul>
+    
+    <div class="tab-content">
+        <!-- RELATÓRIO DE OPERAÇÕES -->
+        <div id="operacoes" class="tab-pane fade show active">
+            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h5 style="margin-bottom: 15px; color: #333;">🔍 Filtros</h5>
+                <div class="row">
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Nº Carga</label>
+                        <input type="text" class="form-control" id="opLoadNum" placeholder="Buscar..." style="border-radius: 6px; border: 1px solid #ddd;">
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Data Início</label>
+                        <input type="date" class="form-control" id="opDataFrom" style="border-radius: 6px; border: 1px solid #ddd;">
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Data Fim</label>
+                        <input type="date" class="form-control" id="opDataTo" style="border-radius: 6px; border: 1px solid #ddd;">
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Status</label>
+                        <select class="form-select" id="opStatus" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todos</option>
+                            <option value="Não Iniciado">Não Iniciado</option>
+                            <option value="Em Andamento">Em Andamento</option>
+                            <option value="Finalizado">Finalizado</option>
+                            <option value="Pausado">Pausado</option>
+                            <option value="Agendado">Agendado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Tipo</label>
+                        <select class="form-select" id="opType" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todos</option>
+                            <option value="Venda">Venda</option>
+                            <option value="Transferência">Transferência</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Unidade</label>
+                        <select class="form-select" id="opUnit" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todas</option>
+                            {% for unit in units %}
+                            <option value="{{ unit.id }}">{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Local</label>
+                        <select class="form-select" id="opLocation" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todos</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc.id }}">{{ loc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                        <button class="btn btn-primary w-100" onclick="filterOperacoes()" style="border-radius: 6px; background: linear-gradient(135deg, #0066CC, #1a8917); border: none;">🔄 Filtrar</button>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="exportOperacoesCsv()" style="border-radius: 4px;">📥 Exportar CSV</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="resetOpFiltros()" style="border-radius: 4px;">🔄 Limpar Filtros</button>
+                </div>
+            </div>
+            
+            <!-- TABELA DE OPERAÇÕES -->
+            <div style="background: white; border-radius: 8px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <table class="table table-hover mb-0" id="operacoesTable" style="font-size: 0.9em;">
+                    <thead style="background: #f8f9fa; border-bottom: 2px solid #ddd; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Nº Carregamento</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Tipo</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Equipe</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Separadores</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Unidade</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Local</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">SKUs</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Peso (kg)</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Status</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Duração</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Ocorrências</th>
+                        </tr>
+                    </thead>
+                    <tbody id="operacoesBody">
+                        <tr><td colspan="11" style="text-align: center; padding: 40px; color: #999;">Carregando dados...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 15px; color: #666; font-size: 0.9em;">
+                <strong id="opCount">0</strong> operação(ões) encontrada(s)
+            </div>
+        </div>
+        
+        <!-- RELATÓRIO DE OCORRÊNCIAS -->
+        <div id="ocorrencias" class="tab-pane fade">
+            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h5 style="margin-bottom: 15px; color: #333;">🔍 Filtros Avançados</h5>
+                <div class="row">
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Data Início</label>
+                        <input type="date" class="form-control" id="occDataFrom" style="border-radius: 6px; border: 1px solid #ddd;">
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Data Fim</label>
+                        <input type="date" class="form-control" id="occDataTo" style="border-radius: 6px; border: 1px solid #ddd;">
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Tipo de Ocorrência</label>
+                        <select class="form-select" id="occType" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todas</option>
+                            <option value="Falta Total">Falta Total</option>
+                            <option value="Falta Parcial">Falta Parcial</option>
+                            <option value="Sobra">Sobra</option>
+                            <option value="Avaria">Avaria</option>
+                            <option value="Divergência">Divergência</option>
+                            {% for occ_type in occurrence_types %}
+                            <option value="{{ occ_type.name }}">{{ occ_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Nº Carregamento</label>
+                        <input type="text" class="form-control" id="occLoadNum" placeholder="Buscar..." style="border-radius: 6px; border: 1px solid #ddd;">
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Separador</label>
+                        <select class="form-select" id="occSeparator" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todos</option>
+                            {% for sep in separators %}
+                            <option value="{{ sep.full_name }}">{{ sep.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label style="font-size: 0.85em; color: #666; font-weight: 600;">Local</label>
+                        <select class="form-select" id="occLocation" style="border-radius: 6px; border: 1px solid #ddd;">
+                            <option value="">Todos</option>
+                            {% for loc in locations %}
+                            <option value="{{ loc.id }}">{{ loc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                        <button class="btn btn-primary w-100" onclick="filterOcorrencias()" style="border-radius: 6px; background: linear-gradient(135deg, #0066CC, #1a8917); border: none;">🔄 Filtrar</button>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="exportOcorrenciasCsv()" style="border-radius: 4px;">📥 Exportar CSV</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="exportOcorrenciasExcel()" style="border-radius: 4px;">📊 Exportar Excel</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="resetOccFiltros()" style="border-radius: 4px;">🔄 Limpar Filtros</button>
+                </div>
+            </div>
+            
+            <!-- TABELA DE OCORRÊNCIAS -->
+            <div style="background: white; border-radius: 8px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <table class="table table-hover mb-0" id="ocorrenciasTable" style="font-size: 0.9em;">
+                    <thead style="background: #f8f9fa; border-bottom: 2px solid #ddd; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Nº Carregamento</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Tipo de Ocorrência</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Separador</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Código Item</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Descrição</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Quantidade</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Data da Operação</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Unidade</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Local</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ocorrenciasBody">
+                        <tr><td colspan="8" style="text-align: center; padding: 40px; color: #999;">Carregando dados...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 15px; color: #666; font-size: 0.9em;">
+                <strong id="occCount">0</strong> ocorrência(s) encontrada(s)
+                <span id="occSummary" style="margin-left: 20px; color: #0066CC; font-weight: 600;"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<script>
+// Converter operações para JSON seguro
+const operationsData = [
+    {% for op in operations %}
+    {
+        id: {{ op.id }},
+        load_number: '{{ op.load_number }}',
+        status: '{{ op.status }}',
+        duration_minutes: {{ op.duration_minutes or 0 }},
+        sku_count: {{ op.sku_count or 0 }},
+        weight_kg: {{ op.weight_kg or 0 }},
+        created_date: '{{ op.created_date.isoformat() if op.created_date else '' }}',
+        unit_id: {{ op.unit_id or 'null' }},
+        location_id: {{ op.location_id or 'null' }},
+        operation_type: '{{ op.operation_type or '' }}',
+        team_type: '{{ op.team_type or '' }}',
+        separator_1_name: '{{ op.separator_1_name or '' }}',
+        separator_2_name: '{{ op.separator_2_name or '' }}',
+        unit_name: '{{ op.unit_name or '' }}',
+        location_name: '{{ op.location_name or '' }}',
+        occurrence_count: {{ op.occurrence_count or 0 }}
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// Converter ocorrências para JSON
+const occurrencesData = [
+    {% for occ in occurrences %}
+    {
+        id: {{ occ.id }},
+        load_operation_id: {{ occ.load_operation_id }},
+        item_code: '{{ occ.item_code or '' }}',
+        description: '{{ occ.description or '' }}',
+        quantity: {{ occ.quantity or 0 }},
+        occurrence_type: '{{ occ.occurrence_type or '' }}'
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// Converter unidades para JSON
+const unitsData = [
+    {% for unit in units %}
+    {
+        id: {{ unit.id }},
+        name: '{{ unit.name }}'
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// Converter locais para JSON
+const locationsData = [
+    {% for loc in locations %}
+    {
+        id: {{ loc.id }},
+        name: '{{ loc.name }}'
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// Converter minutos para HH:MM:SS
+function minutesToTime(minutes) {
+    if (!minutes) return '—';
+    const h = Math.floor(minutes / 60);
+    const m = Math.floor(minutes % 60);
+    const s = Math.floor((minutes % 1) * 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Filtrar e exibir operações
+function filterOperacoes() {
+    const dataFrom   = document.getElementById('opDataFrom').value;
+    const dataTo     = document.getElementById('opDataTo').value;
+    const status     = document.getElementById('opStatus').value;
+    const type       = document.getElementById('opType').value;
+    const unit       = document.getElementById('opUnit').value;
+    const location   = document.getElementById('opLocation').value;
+    const loadNum    = document.getElementById('opLoadNum').value.trim().toLowerCase();
+    
+    let filtered = operationsData.filter(op => {
+        if (dataFrom) {
+            const opDate = new Date(op.created_date).toISOString().split('T')[0];
+            if (opDate < dataFrom) return false;
+        }
+        if (dataTo) {
+            const opDate = new Date(op.created_date).toISOString().split('T')[0];
+            if (opDate > dataTo) return false;
+        }
+        if (status   && op.status         !== status)           return false;
+        if (type     && op.operation_type !== type)             return false;
+        if (unit     && op.unit_id        !== parseInt(unit))     return false;
+        if (location && op.location_id    !== parseInt(location)) return false;
+        if (loadNum  && !(op.load_number || '').toLowerCase().includes(loadNum)) return false;
+        return true;
+    });
+    
+    displayOperacoes(filtered);
+}
+
+function displayOperacoes(data) {
+    const tbody = document.getElementById('operacoesBody');
+    
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px; color: #999;">Nenhuma operação encontrada</td></tr>';
+        document.getElementById('opCount').textContent = '0';
+        return;
+    }
+    
+    const statusColors = {
+        'Finalizado':   '#1aa84a',
+        'Em Andamento': '#0066CC',
+        'Pausado':      '#fd7e14',
+        'Agendado':     '#6f42c1',
+        'Não Iniciado': '#ffc107'
+    };
+
+    let html = '';
+    data.forEach(op => {
+        const statusColor = statusColors[op.status] || '#999';
+        // Dupla com barra, individual sem
+        const sepLabel = op.separator_2_name
+            ? `${op.separator_1_name} / ${op.separator_2_name}`
+            : (op.separator_1_name || '-');
+        
+        html += `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; color: #0066CC; font-weight: 600;">${op.load_number}</td>
+                <td style="padding: 12px; color: #333;">${op.operation_type}</td>
+                <td style="padding: 12px; color: #333;">${op.team_type}</td>
+                <td style="padding: 12px; color: #666;">${sepLabel}</td>
+                <td style="padding: 12px; color: #333;">${op.unit_name || '-'}</td>
+                <td style="padding: 12px; color: #666;">${op.location_name || '-'}</td>
+                <td style="padding: 12px; text-align: center; color: #333; font-weight: 600;">${op.sku_count}</td>
+                <td style="padding: 12px; text-align: center; color: #333;">${op.weight_kg ? op.weight_kg.toFixed(2) : '0'}</td>
+                <td style="padding: 12px;">
+                    <span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">
+                        ${op.status}
+                    </span>
+                </td>
+                <td style="padding: 12px; color: #666; font-family: 'Courier New';">${minutesToTime(op.duration_minutes)}</td>
+                <td style="padding: 12px; text-align: center;">
+                    ${op.occurrence_count > 0
+                        ? `<span style="background:#dc3545;color:white;padding:3px 8px;border-radius:4px;font-size:.85em;font-weight:600;">⚠️ ${op.occurrence_count}</span>`
+                        : `<span style="color:#ccc;">—</span>`}
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    document.getElementById('opCount').textContent = data.length;
+}
+
+function filterOcorrencias() {
+    const dataFrom  = document.getElementById('occDataFrom').value;
+    const dataTo    = document.getElementById('occDataTo').value;
+    const type      = document.getElementById('occType').value;
+    const loadNum   = document.getElementById('occLoadNum').value.toLowerCase();
+    const separator = document.getElementById('occSeparator') ? document.getElementById('occSeparator').value : '';
+    const location  = document.getElementById('occLocation')  ? document.getElementById('occLocation').value  : '';
+    
+    let filtered = occurrencesData.filter(occ => {
+        const op = operationsData.find(o => o.id === occ.load_operation_id);
+        
+        if (dataFrom && op) {
+            const opDate = new Date(op.created_date).toISOString().split('T')[0];
+            if (opDate < dataFrom) return false;
+        }
+        if (dataTo && op) {
+            const opDate = new Date(op.created_date).toISOString().split('T')[0];
+            if (opDate > dataTo) return false;
+        }
+        if (type && occ.occurrence_type !== type) return false;
+        if (loadNum && op) {
+            if (!op.load_number.toLowerCase().includes(loadNum)) return false;
+        }
+        if (separator && op) {
+            const seps = [op.separator_1_name, op.separator_2_name].filter(s => s);
+            if (!seps.includes(separator)) return false;
+        }
+        if (location && op) {
+            if (op.location_id !== parseInt(location)) return false;
+        }
+        return true;
+    });
+    
+    displayOcorrencias(filtered);
+}
+
+// Exibir ocorrências na tabela
+function displayOcorrencias(data) {
+    const tbody = document.getElementById('ocorrenciasBody');
+    
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #999;">Nenhuma ocorrência encontrada</td></tr>';
+        document.getElementById('occCount').textContent = '0';
+        if (document.getElementById('occSummary')) {
+            document.getElementById('occSummary').textContent = '';
+        }
+        return;
+    }
+    
+    let html = '';
+    let totalQtd = 0;
+    const typeCount = {};
+    
+    data.forEach(occ => {
+        const op = operationsData.find(o => o.id === occ.load_operation_id);
+        const opDate = op ? new Date(op.created_date).toLocaleDateString('pt-BR') : '-';
+        totalQtd += occ.quantity || 0;
+        
+        if (occ.occurrence_type) {
+            typeCount[occ.occurrence_type] = (typeCount[occ.occurrence_type] || 0) + 1;
+        }
+        
+        const seps = [];
+        if (op) {
+            if (op.separator_1_name) seps.push(op.separator_1_name);
+            if (op.separator_2_name) seps.push(op.separator_2_name);
+        }
+        const sepLabel = seps.length === 2 ? seps.join(' / ') : (seps[0] || '-');
+        const locationLabel = op ? (op.location_name || '-') : '-';
+        
+        html += `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; color: #0066CC; font-weight: 600;">${op ? op.load_number : '-'}</td>
+                <td style="padding: 12px; color: #333;">
+                    <span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">
+                        ${occ.occurrence_type || '-'}
+                    </span>
+                </td>
+                <td style="padding: 12px; color: #666;">${sepLabel}</td>
+                <td style="padding: 12px; color: #666; font-family: 'Courier New';">${occ.item_code || '-'}</td>
+                <td style="padding: 12px; color: #333;">${occ.description || '-'}</td>
+                <td style="padding: 12px; text-align: center; color: #dc3545; font-weight: 600;">${occ.quantity || 0}</td>
+                <td style="padding: 12px; color: #666;">${opDate}</td>
+                <td style="padding: 12px; color: #333;">${op ? (op.unit_name || '-') : '-'}</td>
+                <td style="padding: 12px; color: #555;">${locationLabel}</td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    document.getElementById('occCount').textContent = data.length;
+    
+    // Resumo
+    if (document.getElementById('occSummary')) {
+        let summary = `Total: ${totalQtd} itens | `;
+        Object.entries(typeCount).forEach(([type, count]) => {
+            summary += `${type}: ${count} | `;
+        });
+        document.getElementById('occSummary').textContent = summary.slice(0, -3);
+    }
+}
+
+// Exportar para CSV
+function exportOperacoesCsv() {
+    let csv = 'Nº Carregamento,Tipo,Equipe,Separadores,Unidade,Local,SKUs,Peso (kg),Status,Duração,Ocorrências\n';
+    
+    document.querySelectorAll('#operacoesBody tr').forEach(row => {
+        const cells = Array.from(row.cells).map(cell => {
+            let text = cell.textContent.trim();
+            if (text.includes(',')) text = `"${text}"`;
+            return text;
+        });
+        csv += cells.join(',') + '\n';
+    });
+    
+    downloadCsv(csv, 'operacoes.csv');
+}
+
+function exportOcorrenciasCsv() {
+    let csv = 'Nº Carregamento,Tipo de Ocorrência,Separador,Código Item,Descrição,Quantidade,Data da Operação,Unidade\n';
+    
+    document.querySelectorAll('#ocorrenciasTable tbody tr').forEach(row => {
+        const cells = Array.from(row.cells).map(cell => {
+            let text = cell.textContent.trim();
+            if (text.includes(',')) text = `"${text}"`;
+            return text;
+        });
+        csv += cells.join(',') + '\n';
+    });
+    
+    downloadCsv(csv, 'ocorrencias.csv');
+}
+
+function exportOcorrenciasExcel() {
+    let html = '<table><tr>';
+    document.querySelectorAll('#ocorrenciasTable thead th').forEach(th => {
+        html += '<td>' + th.textContent.trim() + '</td>';
+    });
+    html += '</tr>';
+    
+    document.querySelectorAll('#ocorrenciasTable tbody tr').forEach(row => {
+        html += '<tr>';
+        Array.from(row.cells).forEach(cell => {
+            html += '<td>' + cell.textContent.trim() + '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</table>';
+    
+    const link = document.createElement('a');
+    link.href = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(html);
+    link.download = 'ocorrencias.xls';
+    link.click();
+}
+
+function downloadCsv(csv, filename) {
+    const link = document.createElement('a');
+    link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    link.download = filename;
+    link.click();
+}
+
+// Limpar filtros
+function resetOpFiltros() {
+    document.getElementById('opDataFrom').value = '';
+    document.getElementById('opDataTo').value = '';
+    document.getElementById('opStatus').value = '';
+    document.getElementById('opType').value = '';
+    document.getElementById('opUnit').value = '';
+    document.getElementById('opLocation').value = '';
+    document.getElementById('opLoadNum').value = '';
+    filterOperacoes();
+}
+
+function resetOccFiltros() {
+    document.getElementById('occDataFrom').value = '';
+    document.getElementById('occDataTo').value = '';
+    document.getElementById('occType').value = '';
+    document.getElementById('occLoadNum').value = '';
+    if (document.getElementById('occSeparator')) document.getElementById('occSeparator').value = '';
+    if (document.getElementById('occLocation'))  document.getElementById('occLocation').value  = '';
+    filterOcorrencias();
+}
+
+// Carregar dados ao iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    filterOperacoes();
+    filterOcorrencias();
+
+    // Filtra ao pressionar Enter nos campos de busca de carga
+    document.getElementById('opLoadNum').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') filterOperacoes();
+    });
+    const occLoadNumEl = document.getElementById('occLoadNum');
+    if (occLoadNumEl) {
+        occLoadNumEl.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') filterOcorrencias();
+        });
+    }
+});
+</script>
+
+<style>
+    .table {
+        margin: 0;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0066CC;
+        box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+    }
+    thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+</style>
+
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>👥 Usuários</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.full_name or user.email }}</td>
+                <td>{{ user.email }}</td>
+                <td><span class="badge bg-primary">{{ user.role }}</span></td>
+                <td><span class="badge bg-success">{{ "Ativo" if user.active else "Inativo" }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

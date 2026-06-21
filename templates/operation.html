@@ -1,0 +1,767 @@
+{% extends "base.html" %}
+{% block content %}
+
+<script>
+// Desabilitar service worker problemático
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+            registration.unregister();
+        }
+    });
+}
+
+// Declarar dados de tipos de ocorrência IMEDIATAMENTE
+const occurrenceTypesData = [
+    {% for oc in occurrence_types %}
+    '{{ oc.name }}',
+    {% endfor %}
+];
+
+// ✅ CORREÇÃO #3: Dados de locais para filtrar por unidade
+const locationsData = [
+    {% for loc in locations %}
+    {
+        id: {{ loc.id }},
+        name: '{{ loc.name }}',
+        unit_id: {{ loc.unit_id }}
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+];
+
+// ✅ CORREÇÃO #3: Função para filtrar locais pela unidade selecionada
+function filterLocationsByUnit() {
+    const unitSelect = document.getElementById('unitSelect');
+    const locationSelect = document.getElementById('locationSelect');
+    const selectedUnitId = unitSelect.value;
+    
+    // Limpar opções anteriores
+    locationSelect.innerHTML = '<option value="">Selecionar...</option>';
+    
+    if (!selectedUnitId) {
+        locationSelect.innerHTML = '<option value="">Selecionar unidade primeiro...</option>';
+        return;
+    }
+    
+    // Filtrar locais pela unidade selecionada
+    const filteredLocations = locationsData.filter(loc => loc.unit_id == selectedUnitId);
+    
+    // Adicionar opções filtradas
+    filteredLocations.forEach(loc => {
+        const option = document.createElement('option');
+        option.value = loc.id;
+        option.textContent = loc.name;
+        locationSelect.appendChild(option);
+    });
+    
+    if (filteredLocations.length === 0) {
+        locationSelect.innerHTML = '<option value="">Nenhum local cadastrado para esta unidade</option>';
+    }
+}
+</script>
+
+<div style="padding: 20px;">
+    <h2>📦 Operação</h2>
+    <div style="text-align: right; margin-bottom: 20px;">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#novaOperacaoModal">
+            <i class="fas fa-plus"></i> Nova Separação
+        </button>
+    </div>
+    
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <!-- ✅ CORREÇÃO: Filtro com De:/Até: e Status -->
+        <form method="POST" id="filterForm">
+            <div class="row">
+                <div class="col-md-2">
+                    <label style="font-size: 0.9em; font-weight: 600; margin-bottom: 5px;">De:</label>
+                    <input type="date" class="form-control" name="filter_date_from" id="filterDateFrom" value="{{ filter_date_from_display or today_date }}" placeholder="dd/mm/yyyy" style="border-radius: 6px; border: 1px solid #ddd;">
+                </div>
+                <div class="col-md-2">
+                    <label style="font-size: 0.9em; font-weight: 600; margin-bottom: 5px;">Até:</label>
+                    <input type="date" class="form-control" name="filter_date_to" id="filterDateTo" value="{{ filter_date_to_display or today_date }}" placeholder="dd/mm/yyyy" style="border-radius: 6px; border: 1px solid #ddd;">
+                </div>
+                <div class="col-md-2">
+                    <label style="font-size: 0.9em; font-weight: 600; margin-bottom: 5px;">Status</label>
+                    <select class="form-select" name="filter_status" style="border-radius: 6px; border: 1px solid #ddd;">
+                        <option value="">Todos</option>
+                        <option value="Finalizado">Finalizado</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Pausado">Pausado</option>
+                        <option value="Não Iniciado">Não Iniciado</option>
+                        <option value="Agendado">Agendado</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label style="font-size: 0.9em; font-weight: 600; margin-bottom: 5px;">Tipo</label>
+                    <select class="form-select" name="filter_type" style="border-radius: 6px; border: 1px solid #ddd;">
+                        <option value="">Todos</option>
+                        <option value="Venda">Venda</option>
+                        <option value="Transferência">Transferência</option>
+                    </select>
+                </div>
+                <div class="col-md-2" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #0066CC, #1aa84a); border: none; border-radius: 6px;">
+                        🔍 Filtrar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- AGENDADOS -->
+    {% set agendados = operations | selectattr('status', 'equalto', 'Agendado') | list %}
+    {% if agendados %}
+    <h5 style="margin-top: 20px; margin-bottom: 15px; color: #6f42c1; font-weight: 700;">📅 AGENDADOS ({{ agendados|length }})</h5>
+    <div class="row">
+        {% for op in agendados %}
+        <div class="col-md-4" style="margin-bottom: 20px;">
+            <div class="card" style="border-left: 4px solid #6f42c1;">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <div>
+                            <span class="badge" style="background: {% if op.operation_type == 'Venda' %}#0066CC{% else %}#ffc107{% endif %}; color: {% if op.operation_type == 'Venda' %}white{% else %}black{% endif %};">{{ op.operation_type }}</span>
+                            <span class="badge" style="background: #0066CC; color: white; margin-left: 5px;">{{ op.team_type }}</span>
+                        </div>
+                        <span class="badge" style="background: #6f42c1; color: white;">📅 Agendado</span>
+                    </div>
+                    <h6 style="font-weight: 700; margin-bottom: 10px;">{{ op.load_number }}</h6>
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                        <div><strong>Unidade:</strong> {{ op.unit_name or '-' }} <strong style="float: right;">SKUs: {{ op.sku_count }}</strong></div>
+                        <div><strong>Sep.:</strong> {{ op.separator_1_name }}{% if op.separator_2_name %}, {{ op.separator_2_name }}{% endif %}</div>
+                        <div><i class="fas fa-map-marker"></i> {{ op.location_name or '-' }}</div>
+                        {% if op.scheduled_date %}
+                        <div style="margin-top: 6px; padding: 6px 10px; background: #f3eeff; border-radius: 5px; color: #6f42c1; font-weight: 600;">
+                            <i class="fas fa-calendar-alt"></i> Agendado para: {{ op.scheduled_date.strftime('%d/%m/%Y %H:%M') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="border-top: 1px solid #eee; padding-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        {% if current_user.role == 'admin' %}
+                        <form method="POST" action="/operation/{{ op.id }}/release" style="flex: 1;">
+                            <button type="submit" class="btn btn-sm btn-success w-100" style="background: #1aa84a;" onclick="return confirm('Liberar operação agendada?')">
+                                <i class="fas fa-unlock"></i> Liberar
+                            </button>
+                        </form>
+                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal{{ op.id }}" style="flex: 1;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        {% else %}
+                        <div style="width: 100%; text-align: center; color: #999; font-size: 0.85em; padding: 8px;">
+                            <i class="fas fa-lock"></i> Aguardando liberação do ADM
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if current_user.role == 'admin' %}
+                    <div style="margin-top: 8px;">
+                        <form method="POST" action="/operation/{{ op.id }}/delete">
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('Deletar?')">
+                                <i class="fas fa-trash"></i> Deletar
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- NÃO INICIADOS -->
+    <h5 style="margin-top: 20px; margin-bottom: 15px; color: #333; font-weight: 700;">NÃO INICIADOS ({{ not_started|length }})</h5>
+    <div class="row">
+        {% for op in not_started %}
+        <div class="col-md-4" style="margin-bottom: 20px;">
+            <div class="card">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <div>
+                            <span class="badge" style="background: {% if op.operation_type == 'Venda' %}#0066CC{% else %}#ffc107{% endif %}; color: {% if op.operation_type == 'Venda' %}white{% else %}black{% endif %};">{{ op.operation_type }}</span>
+                            <span class="badge" style="background: #0066CC; color: white; margin-left: 5px;">{{ op.team_type }}</span>
+                        </div>
+                        <span class="badge" style="background: #FFC107; color: black;">Não Iniciado</span>
+                    </div>
+                    
+                    <h6 style="font-weight: 700; margin-bottom: 15px;">{{ op.load_number }}</h6>
+                    
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
+                        <div><strong>Unidade:</strong> {{ op.unit_name or '-' }} <strong style="float: right;">SKUs: {{ op.sku_count }}</strong></div>
+                        <div><strong>Sep.:</strong> {{ op.separator_1_name }}{% if op.separator_2_name %}, {{ op.separator_2_name }}{% endif %}</div>
+                        <div><i class="fas fa-map-marker"></i> {{ op.location_name or '-' }}</div>
+                    </div>
+                    
+                    <div style="border-top: 1px solid #eee; padding-top: 12px; margin-bottom: 12px;">
+                        <form method="POST" action="/operation/{{ op.id }}/start" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-success" style="width: 48%; background: #1aa84a;">
+                                <i class="fas fa-play"></i> Iniciar
+                            </button>
+                        </form>
+                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal{{ op.id }}" style="width: 48%; margin-left: 2%;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ocorrenciasModal{{ op.id }}" style="flex: 1;">
+                            <i class="fas fa-exclamation-triangle"></i> Ocorrências {% if op.occurrence_count > 0 %}<span class="badge bg-danger">{{ op.occurrence_count }}</span>{% endif %}
+                        </button>
+                        <form method="POST" action="/operation/{{ op.id }}/delete" style="flex: 1;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                                <i class="fas fa-trash"></i> Deletar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- EM ANDAMENTO -->
+    <h5 style="margin-top: 30px; margin-bottom: 15px; color: #333; font-weight: 700;">EM ANDAMENTO ({{ in_progress|length }})</h5>
+    <div class="row">
+        {% for op in in_progress %}
+        <div class="col-md-4" style="margin-bottom: 20px;">
+            <div class="card">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <div>
+                            <span class="badge" style="background: {% if op.operation_type == 'Venda' %}#0066CC{% else %}#ffc107{% endif %}; color: {% if op.operation_type == 'Venda' %}white{% else %}black{% endif %};">{{ op.operation_type }}</span>
+                            <span class="badge" style="background: #0066CC; color: white; margin-left: 5px;">{{ op.team_type }}</span>
+                        </div>
+                        <span class="badge" style="background: #17A2B8; color: white;">Em Andamento</span>
+                    </div>
+                    
+                    <h6 style="font-weight: 700; margin-bottom: 15px;">{{ op.load_number }}</h6>
+                    
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 12px;">
+                        <div><strong>Unidade:</strong> {{ op.unit_name or '-' }} <strong style="float: right;">SKUs: {{ op.sku_count }}</strong></div>
+                        <div><strong>Sep.:</strong> {{ op.separator_1_name }}{% if op.separator_2_name %}, {{ op.separator_2_name }}{% endif %}</div>
+                        <div><i class="fas fa-map-marker"></i> {{ op.location_name or '-' }}</div>
+                        {% if op.destination %}
+                        <div style="color: #0066CC;"><i class="fas fa-location-dot"></i> <strong>Destino:</strong> {{ op.destination }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if op.start_time %}
+                    <div style="font-size: 0.8em; color: #999; margin-bottom: 12px; font-family: 'Courier New', monospace; padding: 8px; background: #f8f9fa; border-radius: 6px;">
+                        <i class="fas fa-clock"></i> Iniciado: {{ op.start_time.strftime('%d/%m/%Y %H:%M:%S') }}
+                    </div>
+                    {% endif %}
+                    
+                    <div style="border-top: 1px solid #eee; padding-top: 12px; margin-bottom: 12px;">
+                        <form method="POST" action="/operation/{{ op.id }}/finish" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-success" style="width: 31%; background: #1aa84a;">
+                                <i class="fas fa-check"></i> Finalizar
+                            </button>
+                        </form>
+                        <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#pauseModal{{ op.id }}" style="width: 31%; margin-left: 2%;">
+                            <i class="fas fa-pause"></i> Pausar
+                        </button>
+                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal{{ op.id }}" style="width: 31%; margin-left: 2%;">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ocorrenciasModal{{ op.id }}" style="flex: 1;">
+                            <i class="fas fa-exclamation-triangle"></i> Ocorrências {% if op.occurrence_count > 0 %}<span class="badge bg-danger">{{ op.occurrence_count }}</span>{% endif %}
+                        </button>
+                        <form method="POST" action="/operation/{{ op.id }}/delete" style="flex: 1;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                                <i class="fas fa-trash"></i> Deletar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- PAUSADOS -->
+    {% set pausados = operations | selectattr('status', 'equalto', 'Pausado') | list %}
+    {% if pausados %}
+    <h5 style="margin-top: 30px; margin-bottom: 15px; color: #fd7e14; font-weight: 700;">⏸️ PAUSADOS ({{ pausados|length }})</h5>
+    <div class="row">
+        {% for op in pausados %}
+        <div class="col-md-4" style="margin-bottom: 20px;">
+            <div class="card" style="border-left: 4px solid #fd7e14;">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <div>
+                            <span class="badge" style="background: {% if op.operation_type == 'Venda' %}#0066CC{% else %}#ffc107{% endif %}; color: {% if op.operation_type == 'Venda' %}white{% else %}black{% endif %};">{{ op.operation_type }}</span>
+                            <span class="badge" style="background: #0066CC; color: white; margin-left: 5px;">{{ op.team_type }}</span>
+                        </div>
+                        <span class="badge" style="background: #fd7e14; color: white;">⏸️ Pausado</span>
+                    </div>
+                    <h6 style="font-weight: 700; margin-bottom: 10px;">{{ op.load_number }}</h6>
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                        <div><strong>Unidade:</strong> {{ op.unit_name or '-' }} <strong style="float: right;">SKUs: {{ op.sku_count }}</strong></div>
+                        <div><strong>Sep.:</strong> {{ op.separator_1_name }}{% if op.separator_2_name %}, {{ op.separator_2_name }}{% endif %}</div>
+                        {% if op.pause_reason %}
+                        <div style="margin-top: 6px; padding: 6px 10px; background: #fff3e0; border-radius: 5px; color: #fd7e14; font-weight: 600;">
+                            <i class="fas fa-pause-circle"></i> Motivo: {{ op.pause_reason }}
+                        </div>
+                        {% endif %}
+                        {% if op.paused_at %}
+                        <div style="font-size: 0.8em; color: #999; margin-top: 4px;">
+                            Pausado às {{ op.paused_at.strftime('%H:%M') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div style="border-top: 1px solid #eee; padding-top: 12px; display: flex; gap: 8px;">
+                        <form method="POST" action="/operation/{{ op.id }}/resume" style="flex: 1;">
+                            <button type="submit" class="btn btn-sm btn-primary w-100">
+                                <i class="fas fa-play"></i> Retomar
+                            </button>
+                        </form>
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ocorrenciasModal{{ op.id }}" style="flex: 1;">
+                            <i class="fas fa-exclamation-triangle"></i> Ocorrências
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- FINALIZADOS -->
+    <h5 style="margin-top: 30px; margin-bottom: 15px; color: #333; font-weight: 700;">FINALIZADOS ({{ finished|length }})</h5>
+    <div class="row">
+        {% for op in finished %}
+        <div class="col-md-4" style="margin-bottom: 20px;">
+            <div class="card">
+                <div class="card-body">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <div>
+                            <span class="badge" style="background: {% if op.operation_type == 'Venda' %}#0066CC{% else %}#ffc107{% endif %}; color: {% if op.operation_type == 'Venda' %}white{% else %}black{% endif %};">{{ op.operation_type }}</span>
+                            <span class="badge" style="background: #0066CC; color: white; margin-left: 5px;">{{ op.team_type }}</span>
+                        </div>
+                        <span class="badge" style="background: #1aa84a; color: white;">Finalizado</span>
+                    </div>
+                    
+                    <h6 style="font-weight: 700; margin-bottom: 15px;">{{ op.load_number }}</h6>
+                    
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 12px;">
+                        <div><strong>Unidade:</strong> {{ op.unit_name or '-' }} <strong style="float: right;">SKUs: {{ op.sku_count }}</strong></div>
+                        <div><strong>Sep.:</strong> {{ op.separator_1_name }}{% if op.separator_2_name %}, {{ op.separator_2_name }}{% endif %}</div>
+                        <div><i class="fas fa-map-marker"></i> {{ op.location_name or '-' }}</div>
+                        {% if op.destination %}
+                        <div style="color: #0066CC;"><i class="fas fa-location-dot"></i> <strong>Destino:</strong> {{ op.destination }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="border-top: 1px solid #eee; padding-top: 12px; margin-bottom: 12px;">
+                        <div style="font-size: 0.8em; color: #999; font-family: 'Courier New', monospace; margin-bottom: 6px;">
+                            <i class="fas fa-play-circle"></i> Início: {{ op.start_time.strftime('%d/%m/%Y %H:%M:%S') if op.start_time else '-' }}
+                        </div>
+                        <div style="font-size: 0.8em; color: #999; font-family: 'Courier New', monospace; margin-bottom: 6px;">
+                            <i class="fas fa-stop-circle"></i> Fim: {{ op.end_time.strftime('%d/%m/%Y %H:%M:%S') if op.end_time else '-' }}
+                        </div>
+                        <div style="font-size: 0.9em; color: #333; font-weight: 600; font-family: 'Courier New', monospace;">
+                            ⏱️ Duração: 
+                            {% if op.duration_minutes %}
+                                {{ '%02d:%02d:%02d' | format((op.duration_minutes * 60) | int // 3600, ((op.duration_minutes * 60) | int % 3600) // 60, (op.duration_minutes * 60) | int % 60) }}
+                            {% else %}
+                                00:00:00
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ocorrenciasModal{{ op.id }}" style="flex: 1;">
+                            <i class="fas fa-exclamation-triangle"></i> Ocorrências {% if op.occurrence_count > 0 %}<span class="badge bg-danger">{{ op.occurrence_count }}</span>{% endif %}
+                        </button>
+                        <form method="POST" action="/operation/{{ op.id }}/delete" style="flex: 1;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                                <i class="fas fa-trash"></i> Deletar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- MODALS DE OCORRÊNCIAS -->
+{% for op in operations %}
+<div class="modal fade" id="ocorrenciasModal{{ op.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ocorrências - {{ op.load_number }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/operation/{{ op.id }}/occurrence/add">
+                <div class="modal-body">
+                    <!-- ✅ MELHORIA #3 CORRIGIDA: Mostrar ocorrências existentes -->
+                    {% set ocorrencias_op = [] %}
+                    {% for occ in occurrences %}
+                        {% if occ.load_operation_id == op.id %}
+                            {% set _ = ocorrencias_op.append(occ) %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if ocorrencias_op %}
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: #333; font-weight: bold; margin-bottom: 10px;">📋 Ocorrências Registradas:</h6>
+                        <table class="table table-sm table-striped" style="margin-bottom: 0;">
+                            <thead style="background: #f8f9fa;">
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Qtd</th>
+                                    <th>Tipo</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- ✅ CORREÇÃO #4: Sequencial por card (1, 2, 3...) -->
+                                {% set occ_number = 1 %}
+                                {% for occ in ocorrencias_op %}
+                                <tr>
+                                    <td style="font-weight: bold; color: #0066CC;">{{ occ_number }}.</td>
+                                    <td>{{ occ.item_code }}</td>
+                                    <td>{{ occ.description }}</td>
+                                    <td>{{ occ.quantity }}</td>
+                                    <td><span class="badge bg-info">{{ occ.occurrence_type }}</span></td>
+                                    <td>
+                                        <form method="POST" action="/operation/{{ op.id }}/occurrence/{{ occ.id }}/delete" style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Deletar ocorrência?');">
+                                                <i class="fas fa-trash"></i> Deletar
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% set occ_number = occ_number + 1 %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr>
+                    <!-- ✅ CORREÇÃO #4: Mostrar próximo número -->
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f0f8ff; border-left: 4px solid #0066CC; border-radius: 4px;">
+                        <p style="margin: 0; color: #0066CC; font-weight: 600;">
+                            ➕ Próxima ocorrência: <span style="font-size: 1.2em;">{{ ocorrencias_op|length + 1 }}</span>
+                        </p>
+                    </div>
+                    {% endif %}
+                    
+                    <div id="ocorrenciasContainer{{ op.id }}"></div>
+                    <button type="button" class="btn btn-outline-primary w-100" onclick="addOcorrenciaField({{ op.id }})">
+                        <i class="fas fa-plus"></i> Adicionar Ocorrência
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Ocorrências</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- MODALS DE EDIÇÃO COMPLETA -->
+{% for op in operations %}
+<div class="modal fade" id="editModal{{ op.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #0066CC, #1aa84a); color: white;">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Separação — {{ op.load_number }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/operation/{{ op.id }}/edit">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Nº Carregamento</label>
+                            <input type="text" class="form-control" name="load_number" value="{{ op.load_number }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Tipo de Operação</label>
+                            <select class="form-select" name="operation_type">
+                                <option value="Venda" {% if op.operation_type == 'Venda' %}selected{% endif %}>Venda</option>
+                                <option value="Transferência" {% if op.operation_type == 'Transferência' %}selected{% endif %}>Transferência</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Tipo de Equipe</label>
+                            <select class="form-select" name="team_type">
+                                <option value="Individual" {% if op.team_type == 'Individual' %}selected{% endif %}>Individual</option>
+                                <option value="Dupla" {% if op.team_type == 'Dupla' %}selected{% endif %}>Dupla</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Destino</label>
+                            <input type="text" class="form-control" name="destination" value="{{ op.destination or '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Separador 1</label>
+                            <select class="form-select" name="separator_1">
+                                <option value="">Manter atual: {{ op.separator_1_name or '-' }}</option>
+                                {% for sep in separators %}
+                                <option value="{{ sep.id }}" {% if op.separator_1 == sep.id %}selected{% endif %}>{{ sep.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Separador 2</label>
+                            <select class="form-select" name="separator_2">
+                                <option value="">Nenhum / Manter atual</option>
+                                {% for sep in separators %}
+                                <option value="{{ sep.id }}" {% if op.separator_2 == sep.id %}selected{% endif %}>{{ sep.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Unidade</label>
+                            <select class="form-select" name="unit_id">
+                                <option value="">Manter atual: {{ op.unit_name or '-' }}</option>
+                                {% for unit in units %}
+                                <option value="{{ unit.id }}" {% if op.unit_id == unit.id %}selected{% endif %}>{{ unit.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Local</label>
+                            <select class="form-select" name="location_id">
+                                <option value="">Manter atual: {{ op.location_name or '-' }}</option>
+                                {% for loc in locations %}
+                                <option value="{{ loc.id }}" {% if op.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">SKUs</label>
+                            <input type="number" class="form-control" name="sku_count" value="{{ op.sku_count }}" min="0" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Peso (kg)</label>
+                            <input type="number" class="form-control" name="weight_kg" value="{{ op.weight_kg }}" step="0.01" min="0">
+                        </div>
+                        {% if current_user.role == 'admin' %}
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold">📅 Data/Hora Agendada</label>
+                            <input type="datetime-local" class="form-control" name="scheduled_date"
+                                value="{{ op.scheduled_date.strftime('%Y-%m-%dT%H:%M') if op.scheduled_date else '' }}">
+                            <small class="text-muted">Deixe em branco para remover o agendamento.</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- MODALS DE PAUSA -->
+{% for op in in_progress %}
+<div class="modal fade" id="pauseModal{{ op.id }}" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #fd7e14; color: white;">
+                <h5 class="modal-title"><i class="fas fa-pause"></i> Pausar Operação</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/operation/{{ op.id }}/pause">
+                <div class="modal-body">
+                    <p style="font-weight: 600; margin-bottom: 15px;">{{ op.load_number }}</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Motivo da Pausa</label>
+                        <div class="d-grid gap-2">
+                            <div class="form-check" style="padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px;">
+                                <input class="form-check-input" type="radio" name="pause_reason" value="Intervalo" id="motivo_intervalo_{{ op.id }}" checked>
+                                <label class="form-check-label" for="motivo_intervalo_{{ op.id }}">
+                                    🍽️ Intervalo / Almoço
+                                </label>
+                            </div>
+                            <div class="form-check" style="padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; margin-top: 6px;">
+                                <input class="form-check-input" type="radio" name="pause_reason" value="Problema Técnico" id="motivo_tecnico_{{ op.id }}">
+                                <label class="form-check-label" for="motivo_tecnico_{{ op.id }}">
+                                    🔧 Problema Técnico
+                                </label>
+                            </div>
+                            <div class="form-check" style="padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; margin-top: 6px;">
+                                <input class="form-check-input" type="radio" name="pause_reason" value="Outros" id="motivo_outros_{{ op.id }}">
+                                <label class="form-check-label" for="motivo_outros_{{ op.id }}">
+                                    📝 Outros motivos
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn" style="background: #fd7e14; color: white;">
+                        <i class="fas fa-pause"></i> Confirmar Pausa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- MODAL NOVA OPERAÇÃO -->
+<div class="modal fade" id="novaOperacaoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nova Separação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/operation/create">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Nº Carregamento</label>
+                        <input type="text" class="form-control" name="load_number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Tipo de Operação</label>
+                        <select class="form-select" name="operation_type" required>
+                            <option value="">Selecionar...</option>
+                            <option value="Venda">Venda</option>
+                            <option value="Transferência">Transferência</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Tipo de Equipe</label>
+                        <select class="form-select" name="team_type" id="team_type" onchange="toggleSeparador2()" required>
+                            <option value="Individual">Individual</option>
+                            <option value="Dupla">Dupla</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Separador 1</label>
+                        <select class="form-select" name="separator_1" required>
+                            <option value="">Selecionar...</option>
+                            {% for sep in separators %}
+                            <option value="{{ sep.id }}">{{ sep.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3" id="separator2_div" style="display: none;">
+                        <label>Separador 2</label>
+                        <select class="form-select" name="separator_2">
+                            <option value="">Selecionar...</option>
+                            {% for sep in separators %}
+                            <option value="{{ sep.id }}">{{ sep.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Unidade</label>
+                        <select class="form-select" name="unit_id" id="unitSelect" onchange="filterLocationsByUnit()" required>
+                            <option value="">Selecionar...</option>
+                            {% for unit in units %}
+                            <option value="{{ unit.id }}">{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Local</label>
+                        <select class="form-select" name="location_id" id="locationSelect" required>
+                            <option value="">Selecionar unidade primeiro...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Destino <small style="color: #999;">(Opcional)</small></label>
+                        <input type="text" class="form-control" name="destination" placeholder="Ex: Cliente XYZ, Centro de Distribuição, etc.">
+                    </div>
+                    <div class="mb-3">
+                        <label>SKUs</label>
+                        <input type="number" class="form-control" name="sku_count" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Peso (kg)</label>
+                        <input type="number" class="form-control" name="weight_kg" step="0.01">
+                    </div>
+                    {% if current_user.role == 'admin' %}
+                    <div class="mb-3" style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 5px;">
+                        <label style="font-weight: 700; color: #6f42c1;">📅 Agendar para data futura <small style="color: #999; font-weight: 400;">(opcional)</small></label>
+                        <input type="datetime-local" class="form-control" name="scheduled_date">
+                        <small class="text-muted">Se preenchido, a operação ficará bloqueada até você liberar.</small>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Criar Separação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSeparador2() {
+    const team_type = document.getElementById('team_type').value;
+    const separator2_div = document.getElementById('separator2_div');
+    if (team_type === 'Dupla') {
+        separator2_div.style.display = 'block';
+    } else {
+        separator2_div.style.display = 'none';
+    }
+}
+
+function addOcorrenciaField(opId) {
+    const container = document.getElementById('ocorrenciasContainer' + opId);
+    const fieldCount = container.children.length;
+    
+    console.log('Adicionando campo de ocorrência:', { opId, fieldCount, typesAvailable: occurrenceTypesData });
+    
+    // Construir opções dinamicamente
+    let optionsHtml = '<option value="">Tipo de Ocorrência</option>';
+    occurrenceTypesData.forEach(type => {
+        optionsHtml += `<option value="${type}">${type}</option>`;
+    });
+    
+    const html = `
+        <div class="mb-3" style="border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
+            <input type="text" class="form-control mb-2" name="item_code_${fieldCount}" placeholder="Código Item" required>
+            <input type="text" class="form-control mb-2" name="description_${fieldCount}" placeholder="Descrição">
+            <input type="number" class="form-control mb-2" name="quantity_${fieldCount}" placeholder="Quantidade" min="1">
+            <select class="form-select" name="occurrence_type_${fieldCount}" required>
+                ${optionsHtml}
+            </select>
+            <button type="button" class="btn btn-sm btn-danger mt-2" onclick="this.parentElement.remove();">🗑️ Remover</button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+// Adicionar listener ao envio do formulário para debug
+document.addEventListener('submit', function(e) {
+    if (e.target.action && e.target.action.includes('/occurrence/add')) {
+        console.log('='.repeat(60));
+        console.log('ENVIANDO FORMULÁRIO DE OCORRÊNCIAS');
+        console.log('Dados do formulário:');
+        const formData = new FormData(e.target);
+        for (let [key, value] of formData.entries()) {
+            console.log(`  ${key}: ${value}`);
+        }
+        console.log('='.repeat(60));
+        
+        // Aguardar o envio e depois recarregar
+        setTimeout(function() {
+            console.log('Recarregando página...');
+            location.reload();
+        }, 1500);
+    }
+});
+</script>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="padding: 20px;">
+    <h2>📋 Cadastros</h2>
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#separadores">Separadores</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#unidades">Unidades</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#locais">Locais</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#ocorrencias">Ocorrências</a></li>
+    </ul>
+    
+    <div class="tab-content">
+        <!-- SEPARADORES -->
+        <div id="separadores" class="tab-pane fade show active">
+            <div class="card mb-3">
+                <div class="card-header" style="background: #0066CC; color: white;"><h5 style="margin: 0;">➕ Adicionar Separador</h5></div>
+                <div class="card-body">
+                    <form method="POST" action="/registrations/separator/add" id="formSeparador">
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <input type="text" class="form-control" name="name" placeholder="Nome completo" required style="border-radius: 6px;">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <input type="text" class="form-control" name="sep_id" placeholder="ID/Matrícula" style="border-radius: 6px;">
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <button type="submit" class="btn btn-success w-100" style="border-radius: 6px;" onclick="setTimeout(() => location.reload(), 500);">Adicionar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- LISTA DE SEPARADORES -->
+            <div id="separadoresContainer" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 20px;">
+                <div id="separadoresContent">
+                    {% if separators and separators|length > 0 %}
+                    <div style="padding: 15px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+                        <strong>{{ separators|length }} Separador(es) Cadastrado(s)</strong>
+                    </div>
+                    <table class="table table-hover mb-0">
+                        <thead style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <tr>
+                                <th style="padding: 12px; color: #333; font-weight: 600;">Nome</th>
+                                <th style="padding: 12px; color: #333; font-weight: 600;">ID/Matrícula</th>
+                                <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sep in separators %}
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 12px; color: #333;"><strong>{{ sep.full_name }}</strong></td>
+                                <td style="padding: 12px; color: #666; font-family: 'Courier New', monospace;">{{ sep.separator_id or '-' }}</td>
+                                <td style="padding: 12px; text-align: center;">
+                                    <form method="POST" action="/registrations/separator/{{ sep.id }}/delete" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deletar {{ sep.full_name }}?');" style="border-radius: 4px;">🗑️ Deletar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div style="padding: 40px; text-align: center; color: #999;">
+                        <p style="margin: 0; font-size: 0.95em;">Nenhum separador cadastrado. Comece adicionando um! ➕</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- UNIDADES -->
+        <div id="unidades" class="tab-pane fade">
+            <div class="card mb-3">
+                <div class="card-header" style="background: #0066CC; color: white;"><h5 style="margin: 0;">➕ Adicionar Unidade</h5></div>
+                <div class="card-body">
+                    <form method="POST" action="/registrations/unit/add">
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <input type="text" class="form-control" name="name" placeholder="Nome da unidade" required style="border-radius: 6px;">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <input type="text" class="form-control" name="code" placeholder="Código" style="border-radius: 6px;">
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <button type="submit" class="btn btn-success w-100" style="border-radius: 6px;">Adicionar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if units|length > 0 %}
+            <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="padding: 15px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+                    <strong>{{ units|length }} Unidade(s) Cadastrada(s)</strong>
+                </div>
+                <table class="table table-hover mb-0">
+                    <thead style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                        <tr>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Nome</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Código</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for unit in units %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 12px; color: #333;"><strong>{{ unit.name }}</strong></td>
+                            <td style="padding: 12px; color: #666; font-family: 'Courier New', monospace;">{{ unit.code or '-' }}</td>
+                            <td style="padding: 12px; text-align: center;">
+                                <form method="POST" action="/registrations/unit/{{ unit.id }}/delete" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deletar {{ unit.name }}?')" style="border-radius: 4px;">🗑️ Deletar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="background: #f8f9fa; padding: 40px; border-radius: 8px; text-align: center; color: #999;">
+                <p style="margin: 0; font-size: 0.95em;">Nenhuma unidade cadastrada. Comece adicionando uma! ➕</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- LOCAIS -->
+        <div id="locais" class="tab-pane fade">
+            <div class="card mb-3">
+                <div class="card-header" style="background: #0066CC; color: white;"><h5 style="margin: 0;">➕ Adicionar Local</h5></div>
+                <div class="card-body">
+                    <form method="POST" action="/registrations/location/add">
+                        <div class="row">
+                            <div class="col-md-5 mb-2">
+                                <input type="text" class="form-control" name="name" placeholder="Nome do local" required style="border-radius: 6px;">
+                            </div>
+                            <div class="col-md-5 mb-2">
+                                <select class="form-select" name="unit_id" style="border-radius: 6px;">
+                                    <option value="">Selecionar Unidade</option>
+                                    {% for unit in units %}
+                                    <option value="{{ unit.id }}">{{ unit.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <button type="submit" class="btn btn-success w-100" style="border-radius: 6px;">Adicionar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if locations|length > 0 %}
+            <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="padding: 15px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+                    <strong>{{ locations|length }} Local(ns) Cadastrado(s)</strong>
+                </div>
+                <table class="table table-hover mb-0">
+                    <thead style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                        <tr>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Nome</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Unidade</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loc in locations %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 12px; color: #333;"><strong>{{ loc.name }}</strong></td>
+                            <td style="padding: 12px; color: #666;">{{ loc.unit_name or '-' }}</td>
+                            <td style="padding: 12px; text-align: center;">
+                                <form method="POST" action="/registrations/location/{{ loc.id }}/delete" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deletar {{ loc.name }}?')" style="border-radius: 4px;">🗑️ Deletar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="background: #f8f9fa; padding: 40px; border-radius: 8px; text-align: center; color: #999;">
+                <p style="margin: 0; font-size: 0.95em;">Nenhum local cadastrado. Comece adicionando um! ➕</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- OCORRÊNCIAS -->
+        <div id="ocorrencias" class="tab-pane fade">
+            <div class="card mb-3">
+                <div class="card-header" style="background: #0066CC; color: white;"><h5 style="margin: 0;">➕ Adicionar Tipo de Ocorrência</h5></div>
+                <div class="card-body">
+                    <form method="POST" action="/registrations/occ-type/add">
+                        <div class="mb-2">
+                            <input type="text" class="form-control" name="name" placeholder="Nome da ocorrência" required style="border-radius: 6px;">
+                        </div>
+                        <div class="mb-2">
+                            <textarea class="form-control" name="description" placeholder="Descrição (opcional)" rows="2" style="border-radius: 6px; resize: none;"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success" style="border-radius: 6px;">Adicionar</button>
+                    </form>
+                </div>
+            </div>
+            
+            {% if occurrence_types|length > 0 %}
+            <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="padding: 15px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+                    <strong>{{ occurrence_types|length }} Tipo(s) de Ocorrência Cadastrado(s)</strong>
+                </div>
+                <table class="table table-hover mb-0">
+                    <thead style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                        <tr>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Nome</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600;">Descrição</th>
+                            <th style="padding: 12px; color: #333; font-weight: 600; text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for oc in occurrence_types %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 12px; color: #333;"><strong>{{ oc.name }}</strong></td>
+                            <td style="padding: 12px; color: #666;">{{ oc.description or '-' }}</td>
+                            <td style="padding: 12px; text-align: center;">
+                                <form method="POST" action="/registrations/occ-type/{{ oc.id }}/delete" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deletar {{ oc.name }}?')" style="border-radius: 4px;">🗑️ Deletar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="background: #f8f9fa; padding: 40px; border-radius: 8px; text-align: center; color: #999;">
+                <p style="margin: 0; font-size: 0.95em;">Nenhum tipo de ocorrência cadastrado. Comece adicionando um! ➕</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Recarregar separadores após adicionar
+document.getElementById('formSeparador').addEventListener('submit', function() {
+    setTimeout(() => {
+        location.reload();
+    }, 300);
+});
+
+// Garantir que a aba de separadores está visível ao carregar
+document.addEventListener('DOMContentLoaded', function() {
+    // Forçar exibição da aba de separadores
+    const sepTab = document.querySelector('[data-bs-target="#separadores"]');
+    if (sepTab) {
+        sepTab.classList.add('active');
+    }
+    
+    const sepPane = document.getElementById('separadores');
+    if (sepPane) {
+        sepPane.classList.add('show', 'active');
+    }
+});
+</script>
+
+<style>
+    .table {
+        margin: 0;
+    }
+    .table tbody tr:last-child {
+        border-bottom: none !important;
+    }
+    .btn-danger:hover {
+        background: #c82333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0066CC;
+        box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+    }
+</style>
+
+{% endblock %}

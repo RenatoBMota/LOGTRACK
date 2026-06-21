@@ -1,0 +1,80 @@
+{% extends "base_layout.html" %}
+{% block title %}Metas SLA{% endblock %}
+{% block page_title %}Metas SLA{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Metas de SLA</h2>
+    <p>Configurar e monitorar metas de desempenho</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">Adicionar Nova Meta</h5>
+                <form method="POST" action="{{ url_for('add_sla_goal') }}">
+                    <div class="mb-3">
+                        <label class="form-label">Nome da Meta</label>
+                        <input type="text" class="form-control" name="name" placeholder="ex: Meta Tempo/SKU" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Métrica</label>
+                        <select class="form-select" name="metric" required>
+                            <option value="">Selecionar...</option>
+                            <option value="tempo_medio_sku">Tempo Médio por SKU (min)</option>
+                            <option value="tempo_medio_tonelada">Tempo Médio por Tonelada (min)</option>
+                            <option value="tempo_medio_carregamento">Tempo Médio por Carregamento (min)</option>
+                            <option value="ocorrencias_max_dia">Máx. Ocorrências por Dia</option>
+                            <option value="peso_min_dia">Peso Mínimo por Dia (kg)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Valor Alvo</label>
+                        <input type="number" class="form-control" name="target_value" step="0.01" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i> Adicionar Meta</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="alert alert-info"><h5><i class="fas fa-info-circle"></i> Sobre Metas SLA</h5>
+            <p>As metas ativas aparecerão como linhas de referência nos gráficos.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr><th>Nome</th><th>Métrica</th><th>Valor Alvo</th><th>Status</th><th>Ações</th></tr>
+                </thead>
+                <tbody>
+                    {% for goal in goals %}
+                    <tr>
+                        <td>{{ goal.name }}</td>
+                        <td>{{ goal.metric.replace('_', ' ').title() }}</td>
+                        <td><strong>{{ goal.target_value }}</strong> {{ goal.unit or 'un' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('toggle_sla_goal', goal_id=goal.id) }}" style="display: inline;">
+                                <button type="submit" class="border-0 bg-transparent p-0">
+                                    <span class="badge {% if goal.active %}bg-success{% else %}bg-secondary{% endif %}">{% if goal.active %}Ativo{% else %}Inativo{% endif %}</span>
+                                </button>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_sla_goal', goal_id=goal.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

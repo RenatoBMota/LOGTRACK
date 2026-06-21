@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="{{ primary_color }}">
+    <meta name="description" content="LogTrack - Monitor de Separação Logística">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LogTrack">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="icon" type="image/png" href="/static/icon-192.png">
+    
+    <title>{% block title %}LogTrack{% endblock %}</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: {{ primary_color }};
+            --secondary-color: {{ secondary_color }};
+        }
+        
+        * {
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        /* Layout Desktop */
+        .main-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 auto 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .sidebar-logo-img {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            margin: 0 auto 15px;
+            display: block;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            object-fit: cover;
+        }
+        
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .sidebar-user {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .sidebar a {
+            display: block;
+            color: #ccc;
+            text-decoration: none;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .sidebar a:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            transform: translateX(5px);
+        }
+        
+        .sidebar a.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar a i {
+            width: 20px;
+            margin-right: 10px;
+            text-align: center;
+        }
+        
+        .sidebar-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 15px 0;
+        }
+        
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: auto;
+            transition: all 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+        }
+        
+        /* Main Content */
+        main {
+            margin-left: 250px;
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        /* Navbar */
+        .navbar {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .navbar-logo {
+            width: 45px;
+            height: 45px;
+            margin-right: 15px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        
+        .navbar-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .navbar-user {
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .navbar-right {
+            color: #999;
+            font-size: 12px;
+        }
+        
+        /* Cards */
+        .card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
+            color: white !important;
+            border: none;
+            border-radius: 12px 12px 0 0;
+            font-weight: 600;
+        }
+        
+        /* Buttons */
+        .btn {
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            filter: brightness(0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        /* Tables */
+        .table {
+            background: white;
+            border-radius: 8px;
+        }
+        
+        thead {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        /* Forms */
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.1);
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 70px;
+                padding: 15px;
+            }
+            
+            .sidebar-header {
+                text-align: center;
+                margin-bottom: 20px;
+                border-bottom: none;
+                padding: 0;
+            }
+            
+            .sidebar-title, .sidebar-user {
+                display: none;
+            }
+            
+            .sidebar-logo {
+                width: 50px;
+                height: 50px;
+                margin: 0 auto 15px;
+                font-size: 20px;
+            }
+            
+            .sidebar-logo-img {
+                width: 50px;
+                height: 50px;
+                margin: 0 auto 15px;
+            }
+            
+            .sidebar a {
+                padding: 15px;
+                text-align: center;
+                font-size: 0;
+                margin: 5px 0;
+            }
+            
+            .sidebar a i {
+                width: auto;
+                margin: 0;
+                font-size: 18px;
+            }
+            
+            .sidebar-divider {
+                margin: 10px 0;
+            }
+            
+            main {
+                margin-left: 70px;
+                padding: 15px;
+            }
+            
+            .navbar {
+                padding: 12px 15px;
+                margin-bottom: 15px;
+            }
+            
+            .navbar-title {
+                font-size: 14px;
+            }
+            
+            .navbar-user {
+                display: none;
+            }
+        }
+        
+        /* Installation Button */
+        #install-pwa-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            z-index: 999;
+            display: none;
+            transition: all 0.3s ease;
+        }
+        
+        #install-pwa-btn:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 992px) {
+            #install-pwa-btn {
+                bottom: 90px;
+                right: 10px;
+                left: 10px;
+                padding: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                {% if config.logo_filename %}
+                    <!-- Logo customizado do usuário -->
+                    <img src="/uploads/{{ config.logo_filename }}" class="sidebar-logo-img" alt="Logo">
+                {% else %}
+                    <!-- Fallback: LT em gradiente -->
+                    <div class="sidebar-logo">LT</div>
+                {% endif %}
+                <div class="sidebar-title">{{ config.app_name or 'LogTrack' }}</div>
+                <div class="sidebar-user">{{ config.app_description or 'Monitor de Separação' }}</div>
+            </div>
+            
+            <!-- Menu Items -->
+            <a href="{{ url_for('dashboard') }}" class="{% if request.path == '/dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-line"></i> <span>Dashboard</span>
+            </a>
+            
+            <a href="{{ url_for('operation') }}" class="{% if request.path == '/operation' %}active{% endif %}">
+                <i class="fas fa-boxes"></i> <span>Operações</span>
+            </a>
+            
+            <a href="{{ url_for('sla') }}" class="{% if request.path == '/sla' %}active{% endif %}">
+                <i class="fas fa-chart-bar"></i> <span>SLA</span>
+            </a>
+            
+            {% if current_user.role in ['admin', 'supervisor'] %}
+                <a href="{{ url_for('sla_goals') }}" class="{% if request.path == '/sla-goals' %}active{% endif %}">
+                    <i class="fas fa-target"></i> <span>Metas SLA</span>
+                </a>
+                
+                <a href="{{ url_for('cadastros') }}" class="{% if request.path == '/cadastros' %}active{% endif %}">
+                    <i class="fas fa-clipboard-list"></i> <span>Cadastros</span>
+                </a>
+                
+                <a href="{{ url_for('relatorios') }}" class="{% if request.path == '/relatorios' %}active{% endif %}">
+                    <i class="fas fa-file-csv"></i> <span>Relatórios</span>
+                </a>
+            {% endif %}
+            
+            {% if current_user.role == 'admin' %}
+                <div class="sidebar-divider"></div>
+                
+                <a href="{{ url_for('configuracoes') }}" class="{% if request.path == '/configuracoes' %}active{% endif %}">
+                    <i class="fas fa-cog"></i> <span>Configurações</span>
+                </a>
+                
+                <a href="{{ url_for('admin_users') }}" class="{% if request.path == '/admin/users' %}active{% endif %}">
+                    <i class="fas fa-users"></i> <span>Usuários</span>
+                </a>
+                
+                <a href="{{ url_for('admin_permissions') }}" class="{% if request.path == '/admin/permissions' %}active{% endif %}">
+                    <i class="fas fa-lock"></i> <span>Permissões</span>
+                </a>
+            {% endif %}
+            
+            <div class="sidebar-divider"></div>
+            
+            <form action="{{ url_for('logout') }}" method="POST" style="height: 100%; display: flex; flex-direction: column;">
+                <button type="submit" class="logout-btn" style="margin-top: auto;">
+                    <i class="fas fa-sign-out-alt"></i> <span>Sair</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Main Content -->
+        <main>
+            <!-- Navbar -->
+            <div class="navbar">
+                <div class="navbar-left">
+                    {% if config.logo_filename %}
+                        <img src="/uploads/{{ config.logo_filename }}" class="navbar-logo" alt="Logo">
+                    {% else %}
+                        <div class="navbar-logo">LT</div>
+                    {% endif %}
+                    <div>
+                        <div class="navbar-title">{{ config.app_name or 'LogTrack' }}</div>
+                        <div class="navbar-user">{{ current_user.full_name }} ({{ current_user.role }})</div>
+                    </div>
+                </div>
+                <div class="navbar-right">
+                    <i class="fas fa-clock"></i> <span id="current-time">00:00</span>
+                </div>
+            </div>
+            
+            <!-- Page Content -->
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- PWA Script -->
+    <script src="/static/pwa.js"></script>
+    
+    <!-- Installation Button -->
+    <button id="install-pwa-btn" title="Instalar LogTrack como aplicativo nativo">
+        <i class="fas fa-download"></i> Instalar App
+    </button>
+    
+    <!-- Utilities -->
+    <script>
+        // Update time
+        function updateTime() {
+            const now = new Date();
+            const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('current-time').textContent = time;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Prevent zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+</body>
+</html>

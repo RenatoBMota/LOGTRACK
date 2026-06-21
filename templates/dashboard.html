@@ -1,0 +1,542 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - LogTrack{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1>📊 Dashboard LogTrack</h1>
+    <p class="text-muted">Indicadores de produtividade e performance em tempo real</p>
+
+    <!-- FILTROS -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="filterForm" class="row">
+                <div class="col-md-2">
+                    <label>Data De</label>
+                    <input type="date" class="form-control" name="date_from" id="dateFrom">
+                </div>
+                <div class="col-md-2">
+                    <label>Data Até</label>
+                    <input type="date" class="form-control" name="date_to" id="dateTo">
+                </div>
+                <div class="col-md-2">
+                    <label>Unidade</label>
+                    <select class="form-control" name="unit" id="filterUnit">
+                        <option value="">Todas as unidades</option>
+                        {% for unit in units %}
+                        <option value="{{ unit.id }}">{{ unit.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>Local</label>
+                    <select class="form-control" name="location" id="filterLocation">
+                        <option value="">Todos os locais</option>
+                        {% for loc in locations %}
+                        <option value="{{ loc.id }}">{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label>Tipo de Operação</label>
+                    <select class="form-control" name="operation_type" id="filterType">
+                        <option value="">Todos os tipos</option>
+                        <option value="Transferência">Transferência</option>
+                        <option value="Venda">Venda</option>
+                    </select>
+                </div>
+                <div class="col-md-2 pt-4">
+                    <button type="button" class="btn btn-primary btn-block" onclick="applyFilters()">
+                        🔍 Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- KPIs (Dinâmicos) -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">TEMPO MÉDIO/SKU</small>
+                    <h3 id="kpiTimePerSku">--:--:--</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">TEMPO MÉDIO/TON</small>
+                    <h3 id="kpiTimePerTon">--:--:--</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">TEMPO MÉDIO/CARGA</small>
+                    <h3 id="kpiTimePerLoad">--:--:--</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">TOTAL SKUs</small>
+                    <h3 id="kpiTotalSkus">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">PESO TOTAL</small>
+                    <h3 id="kpiTotalWeight">0 kg</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">CARGAS FINALIZADAS</small>
+                    <h3 id="kpiFinalized">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card text-center">
+                <div class="card-body">
+                    <small class="text-muted">OCORRÊNCIAS</small>
+                    <h3 id="kpiOccurrences">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="row mb-4">
+        <!-- Tempo Médio/SKU por Colaborador -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Tempo Médio/SKU por Colaborador</h5>
+                    <small>Meta: 2.3 min/SKU</small>
+                </div>
+                <div class="card-body" style="height:375px; position:relative;">
+                    <canvas id="chartTimePerSku"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance por Tipo de Operação -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Performance por Tipo de Operação</h5>
+                </div>
+                <div class="card-body" style="height:375px; position:relative;">
+                    <canvas id="chartPerformance"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Ranking - Tempo Médio/Carga -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Ranking - Tempo Médio/Carga (min)</h5>
+                    <small>Meta: 40 min</small>
+                </div>
+                <div class="card-body" style="height:375px; position:relative;">
+                    <canvas id="chartRanking"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SKUs por Tipo de Operação -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>SKUs por Tipo de Operação</h5>
+                </div>
+                <div class="card-body" style="height:375px; position:relative;">
+                    <canvas id="chartSkuType"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RANKING DETALHADO -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Ranking de Colaboradores</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="rankingTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Colaborador</th>
+                                    <th>Cargas</th>
+                                    <th>SKUs Total</th>
+                                    <th>Tempo Total</th>
+                                    <th>Tempo Médio/Carga</th>
+                                    <th>Tempo/SKU</th>
+                                    <th>SKU/hora</th>
+                                    <th>Peso Total (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rankingBody">
+                                <tr>
+                                    <td colspan="9" class="text-center">Carregando dados...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Importar Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Variáveis globais
+let dashboardData = {};
+let chartTimePerSku = null;
+let chartPerformance = null;
+let chartRanking = null;
+let chartSkuType = null;
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dateFrom').value = today;
+    document.getElementById('dateTo').value = today;
+    
+    loadDashboardData();
+    
+    // Atualizar a cada 30 segundos
+    setInterval(loadDashboardData, 30000);
+});
+
+async function applyFilters() {
+    await loadDashboardData();
+}
+
+async function loadDashboardData() {
+    const dateFrom = document.getElementById('dateFrom').value || '';
+    const dateTo = document.getElementById('dateTo').value || '';
+    const unit = document.getElementById('filterUnit').value || '';
+    const location = document.getElementById('filterLocation').value || '';
+    const operationType = document.getElementById('filterType').value || '';
+    
+    // Montar URL com parâmetros (sem & no final)
+    let url = '/api/dashboard/stats?';
+    const params = [];
+    
+    if (dateFrom) params.push(`date_from=${dateFrom}`);
+    if (dateTo) params.push(`date_to=${dateTo}`);
+    if (unit) params.push(`unit=${unit}`);
+    if (location) params.push(`location=${location}`);
+    if (operationType) params.push(`operation_type=${encodeURIComponent(operationType)}`);
+    
+    url += params.join('&');
+    
+    console.log('📍 Carregando:', url);
+    
+    try {
+        const response = await fetch(url);
+        console.log('📊 Status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('✅ Dados recebidos:', data);
+        
+        dashboardData = data;
+        
+        // Atualizar tudo
+        updateKPIs();
+        drawCharts();
+        updateRankingTable();
+        
+    } catch (error) {
+        console.error('❌ Erro ao carregar dados:', error);
+        console.error('🔍 URL tentada:', url);
+        alert('Erro ao carregar dados!\n\nVerifique o console (F12) para detalhes.');
+    }
+}
+
+function updateKPIs() {
+    const kpis = dashboardData.kpis || {};
+    
+    console.log('📈 KPIs:', kpis);
+    
+    document.getElementById('kpiTimePerSku').textContent = formatTime(kpis.avg_time_per_sku || 0);
+    document.getElementById('kpiTimePerTon').textContent = formatTime(kpis.avg_time_per_ton || 0);
+    document.getElementById('kpiTimePerLoad').textContent = formatTime(kpis.avg_time_per_load || 0);
+    document.getElementById('kpiTotalSkus').textContent = kpis.total_skus || 0;
+    document.getElementById('kpiTotalWeight').textContent = (kpis.total_weight || 0).toFixed(2) + ' kg';
+    document.getElementById('kpiFinalized').textContent = kpis.total_loads || 0;
+    document.getElementById('kpiOccurrences').textContent = kpis.occurrences || 0;
+}
+
+// ── Metas SLA vindas do banco (via Flask/Jinja) ──
+const SLA_METAS = {
+    tempo_medio_sku:          {{ sla_goals | selectattr('metric','equalto','tempo_medio_sku')          | map(attribute='target_value') | first | default(2.3)  }},
+    tempo_medio_carregamento: {{ sla_goals | selectattr('metric','equalto','tempo_medio_carregamento') | map(attribute='target_value') | first | default(40.0) }},
+    tempo_medio_tonelada:     {{ sla_goals | selectattr('metric','equalto','tempo_medio_tonelada')     | map(attribute='target_value') | first | default(5.0)  }},
+    sku_por_hora:             {{ sla_goals | selectattr('metric','equalto','sku_por_hora')             | map(attribute='target_value') | first | default(60.0) }},
+};
+
+// Plugin de linha tracejada de meta
+const metaLinePlugin = {
+    id: 'metaLine',
+    afterDraw(chart) {
+        const meta = chart.config.options.metaValue;
+        if (meta === undefined) return;
+        const { ctx, scales, chartArea } = chart;
+        const isHorizontal = chart.config.options.indexAxis === 'y';
+        if (isHorizontal) {
+            const xPos = scales.x.getPixelForValue(meta);
+            if (xPos < chartArea.left || xPos > chartArea.right) return;
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(xPos, chartArea.top);
+            ctx.lineTo(xPos, chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+        } else {
+            const yPos = scales.y.getPixelForValue(meta);
+            if (yPos < chartArea.top || yPos > chartArea.bottom) return;
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(chartArea.left, yPos);
+            ctx.lineTo(chartArea.right, yPos);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+};
+Chart.register(metaLinePlugin);
+
+function drawCharts() {
+    const collaborators = dashboardData.collaborators || [];
+    const operationTypes = dashboardData.operation_types || [];
+
+    // Ordenar colaboradores por tempo/sku
+    collaborators.sort((a, b) => (a.time_per_sku || 0) - (b.time_per_sku || 0));
+
+    const opTypeLabels = operationTypes.map(o => o.type || 'Desconhecido');
+    const opTimePerSku  = operationTypes.map(o => o.time && o.skus  ? parseFloat((o.time / o.skus).toFixed(2))  : 0);
+    const opTimePerLoad = operationTypes.map(o => o.time && o.loads ? parseFloat((o.time / o.loads).toFixed(2)) : 0);
+
+    // ── Gráfico 1: Tempo/SKU por Colaborador ──
+    const ctx1 = document.getElementById('chartTimePerSku');
+    if (chartTimePerSku) chartTimePerSku.destroy();
+    chartTimePerSku = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: collaborators.map(c => c.name || '?'),
+            datasets: [{
+                label: 'min/SKU',
+                data: collaborators.map(c => parseFloat((c.time_per_sku || 0).toFixed(2))),
+                backgroundColor: collaborators.map(c => (c.time_per_sku || 0) > SLA_METAS.tempo_medio_sku ? '#ff6b6b' : '#1aa84a'),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            metaValue: SLA_METAS.tempo_medio_sku,
+            plugins: {
+                legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(2)} min/SKU (meta: ${SLA_METAS.tempo_medio_sku})` } }
+            },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // ── Gráfico 2: Performance por Tipo de Operação ──
+    const ctx2 = document.getElementById('chartPerformance');
+    if (chartPerformance) chartPerformance.destroy();
+    chartPerformance = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: opTypeLabels,
+            datasets: [
+                { label: 'min/SKU',   data: opTimePerSku,  backgroundColor: '#0066CC' },
+                { label: 'min/Carga', data: opTimePerLoad, backgroundColor: '#FFA500' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} min` } }
+            },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // ── Gráfico 3: Ranking Horizontal ──
+    const ctx3 = document.getElementById('chartRanking');
+    if (chartRanking) chartRanking.destroy();
+    chartRanking = new Chart(ctx3, {
+        type: 'bar',
+        data: {
+            labels: collaborators.map(c => c.name || '?'),
+            datasets: [{
+                label: 'Tempo médio/carga (min)',
+                data: collaborators.map(c => parseFloat((c.time_per_load || 0).toFixed(1))),
+                backgroundColor: collaborators.map(c => (c.time_per_load || 0) > SLA_METAS.tempo_medio_carregamento ? '#ff6b6b' : '#0066CC'),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            metaValue: SLA_METAS.tempo_medio_carregamento,
+            plugins: {
+                legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)} min/carga (meta: ${SLA_METAS.tempo_medio_carregamento})` } }
+            },
+            scales: { x: { beginAtZero: true } }
+        }
+    });
+
+    // ── Gráfico 4: Doughnut SKUs por Tipo ──
+    const ctx4 = document.getElementById('chartSkuType');
+    if (chartSkuType) chartSkuType.destroy();
+    const totalSkusPizza = operationTypes.reduce((s, o) => s + (o.skus || 0), 0);
+    chartSkuType = new Chart(ctx4, {
+        type: 'doughnut',
+        data: {
+            labels: opTypeLabels,
+            datasets: [{
+                data: operationTypes.map(o => o.skus || 0),
+                backgroundColor: ['#1aa84a', '#0066CC', '#FFA500', '#ff6b6b']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const pct = totalSkusPizza > 0 ? ((ctx.parsed / totalSkusPizza) * 100).toFixed(1) : 0;
+                            return ` ${ctx.label}: ${ctx.parsed} SKUs (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateRankingTable() {
+    const collaborators = dashboardData.collaborators || [];
+    const tbody = document.getElementById('rankingBody');
+
+    if (collaborators.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center">Nenhum dado encontrado</td></tr>';
+        return;
+    }
+
+    collaborators.sort((a, b) => (a.time_per_load || 0) - (b.time_per_load || 0));
+
+    const rows = collaborators.map((c, idx) => {
+        // Nome: se tem duplas, mostra indicador
+        const duplaInfo = (c.loads_dupla || 0) > 0
+            ? `<br><small style="color:#6f42c1;font-size:.75em;">🤝 ${c.loads_dupla} em dupla / ${c.loads_solo || 0} solo</small>`
+            : `<br><small style="color:#999;font-size:.75em;">👤 ${c.loads_solo || c.loads || 0} solo</small>`;
+
+        const tPerLoad = c.time_per_load || 0;
+        const tPerSku  = c.time_per_sku  || 0;
+        const loadOk   = tPerLoad <= SLA_METAS.tempo_medio_carregamento;
+        const skuOk    = tPerSku  <= SLA_METAS.tempo_medio_sku;
+
+        return `
+        <tr>
+            <td><strong>${idx + 1}º</strong></td>
+            <td>${c.name || '?'}${duplaInfo}</td>
+            <td>${c.loads || 0}</td>
+            <td>${c.skus || 0}</td>
+            <td>${formatTime(c.total_time || 0)}</td>
+            <td><span class="${loadOk ? 'text-success' : 'text-danger'}" style="font-weight:600;">
+                ${formatTime(tPerLoad)}
+                ${loadOk ? '✅' : '⚠️'}
+            </span></td>
+            <td><span class="${skuOk ? 'text-success' : 'text-danger'}" style="font-weight:600;">
+                ${tPerSku ? formatTime(tPerSku) : '--:--:--'}
+                ${tPerSku ? (skuOk ? '✅' : '⚠️') : ''}
+            </span></td>
+            <td>${c.sku_per_hour ? c.sku_per_hour.toFixed(1) : '--'}</td>
+            <td>${c.weight ? c.weight.toFixed(2) : '0'}</td>
+        </tr>`;
+    }).join('');
+
+    tbody.innerHTML = rows;
+}
+
+function formatTime(minutes) {
+    if (!minutes || minutes < 0 || isNaN(minutes)) return '00:00:00';
+    
+    const totalMinutes = Math.floor(minutes);
+    const seconds = Math.floor((minutes % 1) * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+</script>
+
+<style>
+.card {
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.table-responsive {
+    margin: 0;
+}
+
+.text-danger {
+    color: #dc3545;
+}
+
+.text-success {
+    color: #28a745;
+}
+</style>
+
+{% endblock %}

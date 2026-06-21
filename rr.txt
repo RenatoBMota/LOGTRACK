@@ -1,0 +1,44 @@
+Vejo o problema! Falta instalar o Flask. Você está tentando rodar o app mas não tem as dependências instaladas.
+Execute estes comandos no seu terminal:
+bash
+cd Z:\Renato\Rede\LogTrack\LOGTRACK
+
+pip install Flask Flask-SQLAlchemy Flask-Login Werkzeug
+
+Ou use o script que criei para você:
+No Windows (CMD ou PowerShell):
+
+bash
+
+instalar_dependencias.bat
+
+Se estiver usando Python diretamente:
+
+bashpython -m pip install Flask Flask-SQLAlchemy Flask-Login Werkzeug
+
+📋 Passo a Passo:
+
+Abra o CMD ou PowerShell
+Navegue até a pasta do LogTrack:
+
+bash   cd Z:\Renato\Rede\LogTrack\LOGTRACK
+
+Instale as dependências:
+
+bash   pip install Flask Flask-SQLAlchemy Flask-Login Werkzeug
+
+Depois execute:
+
+bash   python app.py
+
+Acesse no navegador:
+
+   http://localhost:3000
+
+✅ Credenciais Padrão:
+
+Email: admin@sistema
+Senha: admin123
+
+
+Se tiver mais erro, me envie a screenshot que resolvo! 🚀

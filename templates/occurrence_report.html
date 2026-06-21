@@ -1,0 +1,87 @@
+{% extends "base_layout.html" %}
+{% block title %}Ocorrências{% endblock %}
+{% block page_title %}Relatório de Ocorrências{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Relatório de Ocorrências</h2>
+    <p>Registro detalhado de problemas identificados</p>
+</div>
+
+<!-- FILTROS -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('occurrence_report') }}" class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-control" name="date_from">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" name="date_to">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Nº Carga</label>
+                        <input type="text" class="form-control" name="load_number">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Tipo Ocor.</label>
+                        <select class="form-select" name="occ_type">
+                            <option value="">Todos</option>
+                            {% for occ_type in occ_types %}
+                            <option>{{ occ_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
+                        <a href="{{ url_for('export_occurrence_report') }}?{{ request.query_string.decode() }}" class="btn btn-success"><i class="fas fa-download"></i> Exportar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nº Carga</th>
+                        <th>Data</th>
+                        <th>Tipo Op.</th>
+                        <th>Separador</th>
+                        <th>Unidade</th>
+                        <th>Cód. Item</th>
+                        <th>Descrição</th>
+                        <th>Qtd.</th>
+                        <th>Tipo Ocorrência</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td><strong>{{ row.operation.load_number }}</strong></td>
+                        <td>{{ row.operation.start_time.strftime('%d/%m/%Y') if row.operation.start_time else '-' }}</td>
+                        <td>{{ row.operation.operation_type }}</td>
+                        <td>{{ row.operation.separator_1_name }}</td>
+                        <td>{{ row.operation.unit_name }}</td>
+                        <td><code>{{ row.occurrence.item_code }}</code></td>
+                        <td>{{ row.occurrence.description }}</td>
+                        <td>{{ row.occurrence.quantity }}</td>
+                        <td><span class="badge bg-warning">{{ row.occurrence.occurrence_type }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma ocorrência encontrada</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
