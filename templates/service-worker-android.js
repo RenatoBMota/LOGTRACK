@@ -13,9 +13,9 @@ const ASSETS_TO_CACHE = [
     '/static/pwa.js',
     '/static/icon-192.png',
     '/static/icon-512.png',
-    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
+    '/static/vendor/bootstrap/css/bootstrap.min.css',
+    '/static/vendor/fontawesome/css/all.min.css',
+    '/static/vendor/bootstrap/js/bootstrap.bundle.min.js',
 ];
 
 // Install - Cache tudo
