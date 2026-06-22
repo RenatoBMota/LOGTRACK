@@ -8,5 +8,9 @@ services:
     environment:
       - SECRET_KEY=${SECRET_KEY}
     volumes:
-      - ./instance:/app/instance
-      - ./uploads:/app/uploads
+      - instance_data:/app/instance
+      - uploads_data:/app/uploads
+
+volumes:
+  instance_data:
+  uploads_data:
