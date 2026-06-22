@@ -1,0 +1,12 @@
+services:
+  logtrack:
+    build: .
+    container_name: logtrack
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - ./instance:/app/instance
+      - ./uploads:/app/uploads

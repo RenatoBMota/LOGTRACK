@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.git/
+.gitignore
+instance/
+uploads/
+*.db
+*.db-shm
+*.db-wal
+.venv/
+venv/
+.env

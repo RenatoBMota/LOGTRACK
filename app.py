@@ -20,10 +20,12 @@ import json
 BRT = timezone(timedelta(hours=-3))
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'sua-chave-secreta-aqui'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///monitor_separacao.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'sua-chave-secreta-aqui')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL', 'sqlite:///instance/monitor_separacao.db'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
 
 # ✅ Evita "database is locked" sob concorrência (várias abas/PWA/dashboard auto-refresh)
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -31,6 +33,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs('instance', exist_ok=True)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -1901,8 +1904,9 @@ def api_dashboard_stats():
 
 # ============= MAIN =============
 
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     print("""
     ╔════════════════════════════════════════════════════════════════╗
     ║                                                                ║
