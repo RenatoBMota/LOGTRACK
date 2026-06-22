@@ -3,14 +3,30 @@ services:
     build: .
     container_name: logtrack
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - SECRET_KEY=${SECRET_KEY}
     volumes:
       - instance_data:/app/instance
       - uploads_data:/app/uploads
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - logtrack
+
 volumes:
   instance_data:
   uploads_data:
+  caddy_data:
+  caddy_config:

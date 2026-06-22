@@ -1,0 +1,3 @@
+renatomota.online, www.renatomota.online {
+    reverse_proxy logtrack:3000
+}
