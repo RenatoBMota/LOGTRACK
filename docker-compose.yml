@@ -10,23 +10,19 @@ services:
     volumes:
       - instance_data:/app/instance
       - uploads_data:/app/uploads
+    networks:
+      - n8n_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.logtrack.rule=Host(`renatomota.online`) || Host(`www.renatomota.online`)"
+      - "traefik.http.routers.logtrack.entrypoints=websecure"
+      - "traefik.http.routers.logtrack.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.logtrack.loadbalancer.server.port=3000"
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - logtrack
+networks:
+  n8n_default:
+    external: true
 
 volumes:
   instance_data:
   uploads_data:
-  caddy_data:
-  caddy_config:
