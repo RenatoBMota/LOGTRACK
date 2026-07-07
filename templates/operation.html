@@ -396,16 +396,15 @@ function filterLocationsByUnit() {
                 <h5 class="modal-title">Ocorrências - {{ op.load_number }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="/operation/{{ op.id }}/occurrence/add">
-                <div class="modal-body">
-                    <!-- ✅ MELHORIA #3 CORRIGIDA: Mostrar ocorrências existentes -->
+            <div class="modal-body">
+                    <!-- Ocorrências existentes (fora do form de adicionar para evitar forms aninhados) -->
                     {% set ocorrencias_op = [] %}
                     {% for occ in occurrences %}
                         {% if occ.load_operation_id == op.id %}
                             {% set _ = ocorrencias_op.append(occ) %}
                         {% endif %}
                     {% endfor %}
-                    
+
                     {% if ocorrencias_op %}
                     <div style="margin-bottom: 20px;">
                         <h6 style="color: #333; font-weight: bold; margin-bottom: 10px;">📋 Ocorrências Registradas:</h6>
@@ -421,7 +420,6 @@ function filterLocationsByUnit() {
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- ✅ CORREÇÃO #4: Sequencial por card (1, 2, 3...) -->
                                 {% set occ_number = 1 %}
                                 {% for occ in ocorrencias_op %}
                                 <tr>
@@ -444,24 +442,28 @@ function filterLocationsByUnit() {
                         </table>
                     </div>
                     <hr>
-                    <!-- ✅ CORREÇÃO #4: Mostrar próximo número -->
+                    {% endif %}
+
+                    <form method="POST" action="/operation/{{ op.id }}/occurrence/add">
+                    <!-- Próximo número -->
+                    {% if ocorrencias_op %}
                     <div style="margin-bottom: 15px; padding: 10px; background: #f0f8ff; border-left: 4px solid #0066CC; border-radius: 4px;">
                         <p style="margin: 0; color: #0066CC; font-weight: 600;">
                             ➕ Próxima ocorrência: <span style="font-size: 1.2em;">{{ ocorrencias_op|length + 1 }}</span>
                         </p>
                     </div>
                     {% endif %}
-                    
+
                     <div id="ocorrenciasContainer{{ op.id }}"></div>
                     <button type="button" class="btn btn-outline-primary w-100" onclick="addOcorrenciaField({{ op.id }})">
                         <i class="fas fa-plus"></i> Adicionar Ocorrência
                     </button>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar Ocorrências</button>
-                </div>
-            </form>
+                    <div class="modal-footer" style="padding-left: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar Ocorrências</button>
+                    </div>
+                    </form>
+            </div>
         </div>
     </div>
 </div>
