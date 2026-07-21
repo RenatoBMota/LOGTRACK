@@ -1554,21 +1554,20 @@ def ranking():
     if not has_permission('relatorios'):
         return redirect(url_for('dashboard'))
 
-    date_from_str = request.args.get('date_from', '')
-    date_to_str   = request.args.get('date_to', '')
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    date_from_str = request.args.get('date_from', today_str)
+    date_to_str   = request.args.get('date_to', today_str)
 
     query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
-    if date_from_str:
-        try:
-            query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
-        except ValueError:
-            pass
-    if date_to_str:
-        try:
-            dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
-            query = query.filter(LoadOperation.end_time < dt_to)
-        except ValueError:
-            pass
+    try:
+        query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
+    except ValueError:
+        pass
+    try:
+        dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(LoadOperation.end_time < dt_to)
+    except ValueError:
+        pass
 
     operations = query.all()
     occurrences = Occurrence.query.all()
@@ -1614,21 +1613,20 @@ def sla_relatorio():
     if not has_permission('relatorios'):
         return redirect(url_for('dashboard'))
 
-    date_from_str = request.args.get('date_from', '')
-    date_to_str   = request.args.get('date_to', '')
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    date_from_str = request.args.get('date_from', today_str)
+    date_to_str   = request.args.get('date_to', today_str)
 
     query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
-    if date_from_str:
-        try:
-            query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
-        except ValueError:
-            pass
-    if date_to_str:
-        try:
-            dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
-            query = query.filter(LoadOperation.end_time < dt_to)
-        except ValueError:
-            pass
+    try:
+        query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
+    except ValueError:
+        pass
+    try:
+        dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(LoadOperation.end_time < dt_to)
+    except ValueError:
+        pass
 
     operations = query.all()
     sla_goals = SLAGoal.query.filter_by(active=True).all()
@@ -1687,8 +1685,9 @@ def export_sla_relatorio():
     if not has_permission('relatorios'):
         return redirect(url_for('dashboard'))
 
-    date_from_str = request.args.get('date_from', '')
-    date_to_str   = request.args.get('date_to', '')
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    date_from_str = request.args.get('date_from', today_str)
+    date_to_str   = request.args.get('date_to', today_str)
 
     query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
     if date_from_str:
