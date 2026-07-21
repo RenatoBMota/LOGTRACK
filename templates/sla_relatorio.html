@@ -17,19 +17,48 @@
 <!-- Filtros + Export -->
 <div class="sla-card">
     <div class="row g-2 align-items-end">
-        <div class="col-md-4">
+        <div class="col-md-2">
             <label class="form-label fw-bold">Data início</label>
-            <input type="date" id="df" name="date_from" value="{{ date_from }}" class="form-control">
+            <input type="date" id="df" value="{{ date_from }}" class="form-control">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
             <label class="form-label fw-bold">Data fim</label>
-            <input type="date" id="dt" name="date_to" value="{{ date_to }}" class="form-control">
+            <input type="date" id="dt" value="{{ date_to }}" class="form-control">
         </div>
         <div class="col-md-2">
-            <button class="btn btn-primary w-100" onclick="filtrar()"><i class="fas fa-filter"></i> Filtrar</button>
+            <label class="form-label fw-bold">Unidade</label>
+            <select id="fu" class="form-select">
+                <option value="">Todas</option>
+                {% for u in units %}
+                <option value="{{ u.id }}" {% if f_unit == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="col-md-2">
-            <button class="btn btn-success w-100" onclick="exportar()"><i class="fas fa-file-excel"></i> Excel</button>
+            <label class="form-label fw-bold">Local</label>
+            <select id="fl" class="form-select">
+                <option value="">Todos</option>
+                {% for l in locations %}
+                <option value="{{ l.id }}" {% if f_location == l.id|string %}selected{% endif %}>{{ l.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold">Tipo</label>
+            <select id="ft" class="form-select">
+                <option value="">Todos</option>
+                <option value="Venda" {% if f_type == 'Venda' %}selected{% endif %}>Venda</option>
+                <option value="Transferência" {% if f_type == 'Transferência' %}selected{% endif %}>Transferência</option>
+            </select>
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-primary w-100" onclick="filtrar()"><i class="fas fa-filter"></i></button>
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-outline-secondary w-100" onclick="window.location='/sla-relatorio'" title="Limpar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="col-md-12 mt-1">
+            <button class="btn btn-success" onclick="exportar()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
         </div>
     </div>
 </div>
@@ -143,15 +172,16 @@
 </div>
 
 <script>
-function filtrar() {
-    const df = document.getElementById('df').value;
-    const dt = document.getElementById('dt').value;
-    window.location.href = '/sla-relatorio?date_from=' + df + '&date_to=' + dt;
+function buildParams() {
+    const p = new URLSearchParams();
+    p.set('date_from', document.getElementById('df').value);
+    p.set('date_to',   document.getElementById('dt').value);
+    const fu = document.getElementById('fu').value; if (fu) p.set('unit_id', fu);
+    const fl = document.getElementById('fl').value; if (fl) p.set('location_id', fl);
+    const ft = document.getElementById('ft').value; if (ft) p.set('operation_type', ft);
+    return p.toString();
 }
-function exportar() {
-    const df = document.getElementById('df').value;
-    const dt = document.getElementById('dt').value;
-    window.location.href = '/sla-relatorio/export?date_from=' + df + '&date_to=' + dt;
-}
+function filtrar()  { window.location.href = '/sla-relatorio?' + buildParams(); }
+function exportar() { window.location.href = '/sla-relatorio/export?' + buildParams(); }
 </script>
 {% endblock %}

@@ -1554,9 +1554,13 @@ def ranking():
     if not has_permission('relatorios'):
         return redirect(url_for('dashboard'))
 
-    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    today_str     = datetime.utcnow().strftime('%Y-%m-%d')
     date_from_str = request.args.get('date_from', today_str)
     date_to_str   = request.args.get('date_to', today_str)
+    f_unit        = request.args.get('unit_id', '')
+    f_location    = request.args.get('location_id', '')
+    f_type        = request.args.get('operation_type', '')
+    f_separator   = request.args.get('separator', '')
 
     query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
     try:
@@ -1568,8 +1572,18 @@ def ranking():
         query = query.filter(LoadOperation.end_time < dt_to)
     except ValueError:
         pass
+    if f_unit:
+        query = query.filter(LoadOperation.unit_id == int(f_unit))
+    if f_location:
+        query = query.filter(LoadOperation.location_id == int(f_location))
+    if f_type:
+        query = query.filter(LoadOperation.operation_type == f_type)
 
     operations = query.all()
+    if f_separator:
+        operations = [op for op in operations if f_separator.lower() in (op.separator_1_name or '').lower()
+                      or f_separator.lower() in (op.separator_2_name or '').lower()]
+
     occurrences = Occurrence.query.all()
     occ_by_op = defaultdict(list)
     for occ in occurrences:
@@ -1599,10 +1613,19 @@ def ranking():
         })
     ranking_list.sort(key=lambda x: x['ops'], reverse=True)
 
+    units     = OperationUnit.query.filter_by(active=True).all()
+    locations = OperationLocation.query.filter_by(active=True).all()
+
     return render_template('ranking.html',
                            ranking=ranking_list,
                            date_from=date_from_str,
-                           date_to=date_to_str)
+                           date_to=date_to_str,
+                           units=units,
+                           locations=locations,
+                           f_unit=f_unit,
+                           f_location=f_location,
+                           f_type=f_type,
+                           f_separator=f_separator)
 
 
 # ============= RELATÓRIO SLA =============
@@ -1613,9 +1636,12 @@ def sla_relatorio():
     if not has_permission('relatorios'):
         return redirect(url_for('dashboard'))
 
-    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    today_str     = datetime.utcnow().strftime('%Y-%m-%d')
     date_from_str = request.args.get('date_from', today_str)
     date_to_str   = request.args.get('date_to', today_str)
+    f_unit        = request.args.get('unit_id', '')
+    f_location    = request.args.get('location_id', '')
+    f_type        = request.args.get('operation_type', '')
 
     query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
     try:
@@ -1627,9 +1653,17 @@ def sla_relatorio():
         query = query.filter(LoadOperation.end_time < dt_to)
     except ValueError:
         pass
+    if f_unit:
+        query = query.filter(LoadOperation.unit_id == int(f_unit))
+    if f_location:
+        query = query.filter(LoadOperation.location_id == int(f_location))
+    if f_type:
+        query = query.filter(LoadOperation.operation_type == f_type)
 
     operations = query.all()
     sla_goals = SLAGoal.query.filter_by(active=True).all()
+    units     = OperationUnit.query.filter_by(active=True).all()
+    locations = OperationLocation.query.filter_by(active=True).all()
 
     def avalia_op(op, goals):
         resultados = []
@@ -1676,7 +1710,12 @@ def sla_relatorio():
                            meta_stats=dict(meta_stats),
                            date_from=date_from_str,
                            date_to=date_to_str,
-                           sla_goals=sla_goals)
+                           sla_goals=sla_goals,
+                           units=units,
+                           locations=locations,
+                           f_unit=f_unit,
+                           f_location=f_location,
+                           f_type=f_type)
 
 
 @app.route('/sla-relatorio/export')

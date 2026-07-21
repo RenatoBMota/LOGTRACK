@@ -17,16 +17,47 @@
 <!-- Filtros -->
 <div class="rank-card">
     <form method="GET" class="row g-2 align-items-end">
-        <div class="col-md-4">
+        <div class="col-md-2">
             <label class="form-label fw-bold">Data início</label>
             <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
             <label class="form-label fw-bold">Data fim</label>
             <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
         </div>
-        <div class="col-md-4">
-            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i> Filtrar</button>
+        <div class="col-md-2">
+            <label class="form-label fw-bold">Unidade</label>
+            <select name="unit_id" class="form-select">
+                <option value="">Todas</option>
+                {% for u in units %}
+                <option value="{{ u.id }}" {% if f_unit == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold">Local</label>
+            <select name="location_id" class="form-select">
+                <option value="">Todos</option>
+                {% for l in locations %}
+                <option value="{{ l.id }}" {% if f_location == l.id|string %}selected{% endif %}>{{ l.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold">Tipo</label>
+            <select name="operation_type" class="form-select">
+                <option value="">Todos</option>
+                <option value="Venda" {% if f_type == 'Venda' %}selected{% endif %}>Venda</option>
+                <option value="Transferência" {% if f_type == 'Transferência' %}selected{% endif %}>Transferência</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-bold">Separador</label>
+            <input type="text" name="separator" value="{{ f_separator }}" class="form-control" placeholder="Nome...">
+        </div>
+        <div class="col-12 d-flex gap-2 mt-1">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
+            <a href="/ranking" class="btn btn-outline-secondary">Limpar</a>
         </div>
     </form>
 </div>
