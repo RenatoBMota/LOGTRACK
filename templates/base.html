@@ -421,7 +421,19 @@
                 <a href="{{ url_for('relatorios') }}" class="{% if request.path == '/relatorios' %}active{% endif %}">
                     <i class="fas fa-file-csv"></i> <span>Relatórios</span>
                 </a>
+
+                <a href="{{ url_for('sla_relatorio') }}" class="{% if request.path == '/sla-relatorio' %}active{% endif %}">
+                    <i class="fas fa-clipboard-check"></i> <span>Relatório SLA</span>
+                </a>
+
+                <a href="{{ url_for('ranking') }}" class="{% if request.path == '/ranking' %}active{% endif %}">
+                    <i class="fas fa-medal"></i> <span>Ranking Separadores</span>
+                </a>
             {% endif %}
+
+            <a href="{{ url_for('painel') }}" target="_blank">
+                <i class="fas fa-tv"></i> <span>Painel do Dia</span>
+            </a>
             
             {% if current_user.role == 'admin' %}
                 <div class="sidebar-divider"></div>
