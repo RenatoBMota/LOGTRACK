@@ -89,7 +89,7 @@
         </div>
         <div class="kpi sep">
             <div class="kpi-num">{{ em_sep }}</div>
-            <div class="kpi-label">Em Separação</div>
+            <div class="kpi-label">Em Andamento</div>
         </div>
         <div class="kpi fim">
             <div class="kpi-num">{{ finalizados }}</div>
@@ -105,8 +105,8 @@
     {% if operations %}
     <div class="op-grid">
         {% for op in operations %}
-        {% set status_cls = 'finalizado' if op.status == 'Finalizado' else ('em-sep' if op.status == 'Em Separação' else ('pausado' if op.status == 'Pausado' else 'nao-inic')) %}
-        {% set badge_cls = 'st-fin' if op.status == 'Finalizado' else ('st-sep' if op.status == 'Em Separação' else ('st-pau' if op.status == 'Pausado' else 'st-ni')) %}
+        {% set status_cls = 'finalizado' if op.status == 'Finalizado' else ('em-sep' if op.status == 'Em Andamento' else ('pausado' if op.status == 'Pausado' else 'nao-inic')) %}
+        {% set badge_cls = 'st-fin' if op.status == 'Finalizado' else ('st-sep' if op.status == 'Em Andamento' else ('st-pau' if op.status == 'Pausado' else 'st-ni')) %}
         <div class="op-card {{ status_cls }}">
             {% if op.occurrence_count and op.occurrence_count > 0 %}
             <div class="ocorr-badge" title="Ocorrências">{{ op.occurrence_count }}</div>

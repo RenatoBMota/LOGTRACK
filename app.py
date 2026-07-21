@@ -1839,7 +1839,7 @@ def painel():
 
     total = len(operations)
     finalizados = sum(1 for op in operations if op.status == 'Finalizado')
-    em_sep = sum(1 for op in operations if op.status == 'Em Separação')
+    em_sep = sum(1 for op in operations if op.status == 'Em Andamento')
     nao_iniciados = sum(1 for op in operations if op.status == 'Não Iniciado')
 
     return render_template('painel.html',
