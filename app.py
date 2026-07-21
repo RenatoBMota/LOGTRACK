@@ -12,8 +12,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import inspect
 import os
 import csv
-from io import StringIO
+from io import StringIO, BytesIO
 import json
+from collections import defaultdict
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
 
 # ============= CONFIGURAÇÃO DE TIMEZONE =============
 # Fuso horário de Brasília (BRT/BRST) - UTC-3
@@ -1169,18 +1172,26 @@ def export_reports():
 def occurrence_report():
     if not has_permission('ocorrencias'):
         return redirect(url_for('dashboard'))
-    
+
     occurrences = Occurrence.query.all()
-    # ✅ MELHORIA #2 + #5: Filtrar apenas ativos nos dropdowns
     separators = Separator.query.filter_by(active=True).all()
     units = OperationUnit.query.filter_by(active=True).all()
     occurrence_types = OccurrenceType.query.filter_by(active=True).all()
-    
-    return render_template('ocorrencias.html', 
+
+    # Contagem por tipo para o gráfico
+    tipo_counts = defaultdict(int)
+    for occ in occurrences:
+        tipo_counts[occ.occurrence_type or 'Sem tipo'] += 1
+    tipo_labels = list(tipo_counts.keys())
+    tipo_data   = list(tipo_counts.values())
+
+    return render_template('ocorrencias.html',
                          occurrences=occurrences,
                          separators=separators,
                          units=units,
-                         occurrence_types=occurrence_types)
+                         occurrence_types=occurrence_types,
+                         tipo_labels=tipo_labels,
+                         tipo_data=tipo_data)
 
 @app.route('/relatorios')
 @login_required
@@ -1534,6 +1545,273 @@ def save_settings():
     except:
         db.session.rollback()
         return redirect(url_for('settings'))
+
+# ============= RANKING DE SEPARADORES =============
+
+@app.route('/ranking')
+@login_required
+def ranking():
+    if not has_permission('relatorios'):
+        return redirect(url_for('dashboard'))
+
+    date_from_str = request.args.get('date_from', '')
+    date_to_str   = request.args.get('date_to', '')
+
+    query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
+    if date_from_str:
+        try:
+            query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(LoadOperation.end_time < dt_to)
+        except ValueError:
+            pass
+
+    operations = query.all()
+    occurrences = Occurrence.query.all()
+    occ_by_op = defaultdict(list)
+    for occ in occurrences:
+        occ_by_op[occ.load_operation_id].append(occ)
+
+    sep_stats = {}
+    for op in operations:
+        names = []
+        if op.separator_1_name:
+            names.append(op.separator_1_name)
+        if op.separator_2_name:
+            names.append(op.separator_2_name)
+        for name in names:
+            if name not in sep_stats:
+                sep_stats[name] = {'ops': 0, 'ocorrencias': 0, 'total_min': 0}
+            sep_stats[name]['ops'] += 1
+            sep_stats[name]['ocorrencias'] += len(occ_by_op[op.id])
+            sep_stats[name]['total_min'] += op.duration_minutes or 0
+
+    ranking_list = []
+    for name, s in sep_stats.items():
+        ranking_list.append({
+            'nome': name,
+            'ops': s['ops'],
+            'ocorrencias': s['ocorrencias'],
+            'tempo_medio': round(s['total_min'] / s['ops']) if s['ops'] else 0,
+        })
+    ranking_list.sort(key=lambda x: x['ops'], reverse=True)
+
+    return render_template('ranking.html',
+                           ranking=ranking_list,
+                           date_from=date_from_str,
+                           date_to=date_to_str)
+
+
+# ============= RELATÓRIO SLA =============
+
+@app.route('/sla-relatorio')
+@login_required
+def sla_relatorio():
+    if not has_permission('relatorios'):
+        return redirect(url_for('dashboard'))
+
+    date_from_str = request.args.get('date_from', '')
+    date_to_str   = request.args.get('date_to', '')
+
+    query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
+    if date_from_str:
+        try:
+            query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(LoadOperation.end_time < dt_to)
+        except ValueError:
+            pass
+
+    operations = query.all()
+    sla_goals = SLAGoal.query.filter_by(active=True).all()
+
+    def avalia_op(op, goals):
+        resultados = []
+        for goal in goals:
+            try:
+                if goal.metric == 'tempo_medio_sku' and op.sku_count:
+                    valor = op.duration_minutes / op.sku_count
+                    dentro = valor <= goal.target_value
+                elif goal.metric == 'tempo_medio_tonelada' and op.weight_kg:
+                    valor = op.duration_minutes / (op.weight_kg / 1000)
+                    dentro = valor <= goal.target_value
+                elif goal.metric == 'tempo_medio_carregamento':
+                    valor = op.duration_minutes
+                    dentro = valor <= goal.target_value
+                elif goal.metric == 'sku_por_hora' and op.duration_minutes:
+                    valor = (op.sku_count / op.duration_minutes) * 60
+                    dentro = valor >= goal.target_value
+                else:
+                    continue
+                resultados.append({'meta': goal.name, 'dentro': dentro, 'valor': round(valor, 2), 'alvo': goal.target_value, 'unit': goal.unit})
+            except (ZeroDivisionError, TypeError):
+                continue
+        return resultados
+
+    rows = []
+    meta_stats = defaultdict(lambda: {'dentro': 0, 'fora': 0})
+    for op in operations:
+        res = avalia_op(op, sla_goals)
+        dentro_geral = all(r['dentro'] for r in res) if res else None
+        rows.append({'op': op, 'resultados': res, 'dentro_geral': dentro_geral})
+        for r in res:
+            if r['dentro']:
+                meta_stats[r['meta']]['dentro'] += 1
+            else:
+                meta_stats[r['meta']]['fora'] += 1
+
+    total = len(operations)
+    dentro_count = sum(1 for r in rows if r['dentro_geral'])
+
+    return render_template('sla_relatorio.html',
+                           rows=rows,
+                           total=total,
+                           dentro_count=dentro_count,
+                           meta_stats=dict(meta_stats),
+                           date_from=date_from_str,
+                           date_to=date_to_str,
+                           sla_goals=sla_goals)
+
+
+@app.route('/sla-relatorio/export')
+@login_required
+def export_sla_relatorio():
+    if not has_permission('relatorios'):
+        return redirect(url_for('dashboard'))
+
+    date_from_str = request.args.get('date_from', '')
+    date_to_str   = request.args.get('date_to', '')
+
+    query = LoadOperation.query.filter(LoadOperation.status == 'Finalizado')
+    if date_from_str:
+        try:
+            query = query.filter(LoadOperation.end_time >= datetime.strptime(date_from_str, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            dt_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(LoadOperation.end_time < dt_to)
+        except ValueError:
+            pass
+
+    operations = query.all()
+    sla_goals = SLAGoal.query.filter_by(active=True).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Relatório SLA'
+
+    header_fill = PatternFill(start_color='0066CC', end_color='0066CC', fill_type='solid')
+    header_font = Font(color='FFFFFF', bold=True)
+    green_fill  = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+    red_fill    = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+
+    base_headers = ['Nº Carregamento', 'Separador', 'Destino', 'Início', 'Fim', 'Duração (min)', 'SKUs', 'Peso (kg)', 'SLA Geral']
+    meta_names = [g.name for g in sla_goals if g.metric != 'max_ocorrencias_dia']
+    headers = base_headers + meta_names
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    for row_idx, op in enumerate(operations, 2):
+        sla_results = {}
+        for goal in sla_goals:
+            try:
+                if goal.metric == 'tempo_medio_sku' and op.sku_count:
+                    v = op.duration_minutes / op.sku_count
+                    sla_results[goal.name] = ('✓ Dentro' if v <= goal.target_value else '✗ Fora', v <= goal.target_value)
+                elif goal.metric == 'tempo_medio_tonelada' and op.weight_kg:
+                    v = op.duration_minutes / (op.weight_kg / 1000)
+                    sla_results[goal.name] = ('✓ Dentro' if v <= goal.target_value else '✗ Fora', v <= goal.target_value)
+                elif goal.metric == 'tempo_medio_carregamento':
+                    v = op.duration_minutes
+                    sla_results[goal.name] = ('✓ Dentro' if v <= goal.target_value else '✗ Fora', v <= goal.target_value)
+                elif goal.metric == 'sku_por_hora' and op.duration_minutes:
+                    v = (op.sku_count / op.duration_minutes) * 60
+                    sla_results[goal.name] = ('✓ Dentro' if v >= goal.target_value else '✗ Fora', v >= goal.target_value)
+            except (ZeroDivisionError, TypeError):
+                pass
+
+        geral_ok = all(v[1] for v in sla_results.values()) if sla_results else None
+        sep = op.separator_1_name or ''
+        if op.separator_2_name:
+            sep += f' / {op.separator_2_name}'
+
+        row_data = [
+            op.load_number or '',
+            sep,
+            op.destination or '',
+            op.start_time.strftime('%d/%m/%Y %H:%M') if op.start_time else '',
+            op.end_time.strftime('%d/%m/%Y %H:%M') if op.end_time else '',
+            op.duration_minutes or 0,
+            op.sku_count or 0,
+            op.weight_kg or 0,
+            '✓ Dentro' if geral_ok else ('✗ Fora' if geral_ok is False else '-'),
+        ]
+        for mn in meta_names:
+            row_data.append(sla_results.get(mn, ('-', None))[0])
+
+        for col, val in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col, value=val)
+            if col == 9:
+                cell.fill = green_fill if geral_ok else (red_fill if geral_ok is False else PatternFill())
+            elif col > 9:
+                mn = meta_names[col - 10]
+                r = sla_results.get(mn)
+                if r:
+                    cell.fill = green_fill if r[1] else red_fill
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value or '')) for c in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name='relatorio_sla.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+# ============= PAINEL DO DIA =============
+
+@app.route('/painel')
+def painel():
+    hoje = datetime.utcnow().date()
+    amanha = hoje + timedelta(days=1)
+    operations = LoadOperation.query.filter(
+        db.or_(
+            db.and_(LoadOperation.start_time >= datetime(hoje.year, hoje.month, hoje.day),
+                    LoadOperation.start_time < datetime(amanha.year, amanha.month, amanha.day)),
+            db.and_(LoadOperation.created_date >= datetime(hoje.year, hoje.month, hoje.day),
+                    LoadOperation.created_date < datetime(amanha.year, amanha.month, amanha.day),
+                    LoadOperation.start_time == None)
+        )
+    ).order_by(LoadOperation.status, LoadOperation.start_time).all()
+
+    total = len(operations)
+    finalizados = sum(1 for op in operations if op.status == 'Finalizado')
+    em_sep = sum(1 for op in operations if op.status == 'Em Separação')
+    nao_iniciados = sum(1 for op in operations if op.status == 'Não Iniciado')
+
+    return render_template('painel.html',
+                           operations=operations,
+                           total=total,
+                           finalizados=finalizados,
+                           em_sep=em_sep,
+                           nao_iniciados=nao_iniciados,
+                           now=datetime.utcnow())
+
 
 # ============= CRIAR BANCO =============
 

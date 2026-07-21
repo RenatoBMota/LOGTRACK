@@ -1,0 +1,146 @@
+{% extends "base_layout.html" %}
+{% block page_title %}Ranking de Separadores{% endblock %}
+{% block page_subtitle %}Desempenho por separador em operações finalizadas{% endblock %}
+
+{% block content %}
+<style>
+.rank-card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.rank-table th { background: #0066CC; color: white; }
+.medal-1 { color: #FFD700; font-size: 1.4em; }
+.medal-2 { color: #C0C0C0; font-size: 1.4em; }
+.medal-3 { color: #CD7F32; font-size: 1.4em; }
+.stat-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
+.bar-wrap { background: #f0f4f8; border-radius: 6px; height: 14px; width: 100%; }
+.bar-fill  { height: 14px; border-radius: 6px; background: linear-gradient(90deg, #0066CC, #1aa84a); }
+</style>
+
+<!-- Filtros -->
+<div class="rank-card">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Data início</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Data fim</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i> Filtrar</button>
+        </div>
+    </form>
+</div>
+
+{% if ranking %}
+<!-- Pódio top 3 -->
+{% if ranking|length >= 1 %}
+<div class="rank-card text-center">
+    <h5 class="fw-bold mb-4"><i class="fas fa-trophy" style="color:#FFD700"></i> Top Separadores</h5>
+    <div class="row justify-content-center">
+        {% for sep in ranking[:3] %}
+        <div class="col-md-3">
+            <div style="padding: 20px; border-radius: 12px; background: {% if loop.index==1 %}#FFF8E1{% elif loop.index==2 %}#F5F5F5{% else %}#FBE9E7{% endif %}; margin: 6px;">
+                {% if loop.index == 1 %}<div class="medal-1">🥇</div>
+                {% elif loop.index == 2 %}<div class="medal-2">🥈</div>
+                {% else %}<div class="medal-3">🥉</div>{% endif %}
+                <div style="font-size: 1.1em; font-weight: 700; margin: 8px 0;">{{ sep.nome }}</div>
+                <div style="font-size: 2em; font-weight: 800; color: #0066CC;">{{ sep.ops }}</div>
+                <div style="color: #666; font-size: 0.85em;">operações</div>
+                <div style="margin-top: 8px; font-size: 0.85em; color: #888;">
+                    ⏱ {{ sep.tempo_medio }} min média &nbsp;|&nbsp; ⚠ {{ sep.ocorrencias }} ocorr.
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabela completa -->
+<div class="rank-card">
+    {% set max_ops = ranking[0].ops if ranking else 1 %}
+    <h5 class="fw-bold mb-3"><i class="fas fa-list-ol"></i> Classificação Completa</h5>
+    <div class="table-responsive">
+        <table class="table rank-table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th style="width:50px">#</th>
+                    <th>Separador</th>
+                    <th class="text-center">Operações</th>
+                    <th style="min-width:160px">Progresso</th>
+                    <th class="text-center">Ocorrências</th>
+                    <th class="text-center">Tempo Médio</th>
+                    <th class="text-center">Ocorr./Op.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sep in ranking %}
+                <tr>
+                    <td class="fw-bold text-center">
+                        {% if loop.index == 1 %}🥇
+                        {% elif loop.index == 2 %}🥈
+                        {% elif loop.index == 3 %}🥉
+                        {% else %}{{ loop.index }}{% endif %}
+                    </td>
+                    <td class="fw-bold">{{ sep.nome }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-primary fs-6">{{ sep.ops }}</span>
+                    </td>
+                    <td>
+                        <div class="bar-wrap">
+                            <div class="bar-fill" style="width: {{ (sep.ops / max_ops * 100)|int }}%"></div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <span class="stat-badge {% if sep.ocorrencias == 0 %}bg-success text-white{% elif sep.ocorrencias <= 3 %}bg-warning{% else %}bg-danger text-white{% endif %}">
+                            {{ sep.ocorrencias }}
+                        </span>
+                    </td>
+                    <td class="text-center">{{ sep.tempo_medio }} min</td>
+                    <td class="text-center">
+                        {% if sep.ops > 0 %}
+                        {{ "%.1f"|format(sep.ocorrencias / sep.ops) }}
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Gráfico de barras -->
+<div class="rank-card">
+    <h5 class="fw-bold mb-3"><i class="fas fa-chart-bar"></i> Operações por Separador</h5>
+    <canvas id="chartRanking" height="80"></canvas>
+</div>
+
+<script src="/static/vendor/chartjs/chart.js"></script>
+<script>
+const labels = {{ ranking | map(attribute='nome') | list | tojson }};
+const dataOps = {{ ranking | map(attribute='ops') | list | tojson }};
+const dataOcorr = {{ ranking | map(attribute='ocorrencias') | list | tojson }};
+const dataTempo = {{ ranking | map(attribute='tempo_medio') | list | tojson }};
+
+new Chart(document.getElementById('chartRanking'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            { label: 'Operações finalizadas', data: dataOps, backgroundColor: '#0066CC' },
+            { label: 'Ocorrências', data: dataOcorr, backgroundColor: '#e74c3c' },
+            { label: 'Tempo médio (min)', data: dataTempo, backgroundColor: '#1aa84a', hidden: true }
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+});
+</script>
+
+{% else %}
+<div class="rank-card text-center" style="padding: 60px;">
+    <i class="fas fa-users" style="font-size:3em; color:#ccc;"></i>
+    <h4 style="color:#999; margin-top:16px;">Nenhuma operação finalizada no período</h4>
+    <p style="color:#bbb;">Ajuste o filtro de datas ou aguarde operações serem finalizadas.</p>
+</div>
+{% endif %}
+{% endblock %}

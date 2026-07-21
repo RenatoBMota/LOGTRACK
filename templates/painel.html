@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Dia — Monitor de Separação</title>
+    <link href="/static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0a0e1a;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .painel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #0066CC, #1aa84a);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .painel-header h1 { font-size: 1.6em; font-weight: 800; letter-spacing: 1px; }
+        .painel-clock { font-size: 2em; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .kpi { background: #141828; border-radius: 10px; padding: 16px; text-align: center; border-top: 4px solid; }
+        .kpi.total  { border-color: #4fc3f7; }
+        .kpi.sep    { border-color: #FFD700; }
+        .kpi.fim    { border-color: #1aa84a; }
+        .kpi.naoinic{ border-color: #888; }
+        .kpi-num  { font-size: 2.6em; font-weight: 900; }
+        .kpi-label{ font-size: 0.85em; color: #aaa; margin-top: 2px; }
+        .op-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+        .op-card {
+            border-radius: 12px;
+            padding: 18px;
+            border-left: 6px solid;
+            background: #141828;
+            position: relative;
+        }
+        .op-card.finalizado  { border-color: #1aa84a; }
+        .op-card.em-sep      { border-color: #FFD700; }
+        .op-card.pausado     { border-color: #ff9800; }
+        .op-card.nao-inic    { border-color: #555; opacity: 0.7; }
+        .op-num { font-size: 1.3em; font-weight: 800; color: #fff; }
+        .op-dest { font-size: 0.9em; color: #ccc; margin-top: 2px; }
+        .op-sep { font-size: 0.85em; color: #aaa; margin-top: 6px; }
+        .op-status {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 0.78em;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+        .st-fin { background: #1aa84a; color: white; }
+        .st-sep { background: #FFD700; color: #333; }
+        .st-pau { background: #ff9800; color: white; }
+        .st-ni  { background: #555; color: #ccc; }
+        .op-info { display: flex; gap: 12px; margin-top: 10px; font-size: 0.8em; color: #aaa; flex-wrap: wrap; }
+        .op-info span { background: #1e2435; padding: 2px 8px; border-radius: 6px; }
+        .ocorr-badge { position: absolute; top: 14px; right: 14px; background: #e74c3c; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 0.85em; font-weight: 700; }
+        .footer-bar { text-align: center; color: #444; font-size: 0.8em; margin-top: 20px; }
+        @media (max-width: 600px) {
+            .kpi-row { grid-template-columns: repeat(2,1fr); }
+            .painel-clock { font-size: 1.3em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="painel-header">
+        <div>
+            <h1>📦 PAINEL DO DIA</h1>
+            <div style="font-size:0.85em; opacity:0.8;">
+                {{ now.strftime('%d/%m/%Y') }} &nbsp;|&nbsp; Atualiza automaticamente
+            </div>
+        </div>
+        <div class="painel-clock" id="clock">--:--:--</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+        <div class="kpi total">
+            <div class="kpi-num">{{ total }}</div>
+            <div class="kpi-label">Total do dia</div>
+        </div>
+        <div class="kpi sep">
+            <div class="kpi-num">{{ em_sep }}</div>
+            <div class="kpi-label">Em Separação</div>
+        </div>
+        <div class="kpi fim">
+            <div class="kpi-num">{{ finalizados }}</div>
+            <div class="kpi-label">Finalizados</div>
+        </div>
+        <div class="kpi naoinic">
+            <div class="kpi-num">{{ nao_iniciados }}</div>
+            <div class="kpi-label">Não Iniciados</div>
+        </div>
+    </div>
+
+    <!-- Cards das operações -->
+    {% if operations %}
+    <div class="op-grid">
+        {% for op in operations %}
+        {% set status_cls = 'finalizado' if op.status == 'Finalizado' else ('em-sep' if op.status == 'Em Separação' else ('pausado' if op.status == 'Pausado' else 'nao-inic')) %}
+        {% set badge_cls = 'st-fin' if op.status == 'Finalizado' else ('st-sep' if op.status == 'Em Separação' else ('st-pau' if op.status == 'Pausado' else 'st-ni')) %}
+        <div class="op-card {{ status_cls }}">
+            {% if op.occurrence_count and op.occurrence_count > 0 %}
+            <div class="ocorr-badge" title="Ocorrências">{{ op.occurrence_count }}</div>
+            {% endif %}
+            <div class="op-num">{{ op.load_number }}</div>
+            <div class="op-dest">{{ op.destination or 'Destino não informado' }}</div>
+            <div class="op-sep">
+                👤 {{ op.separator_1_name or '-' }}{% if op.separator_2_name %} &amp; {{ op.separator_2_name }}{% endif %}
+            </div>
+            <span class="op-status {{ badge_cls }}">{{ op.status }}</span>
+            <div class="op-info">
+                {% if op.start_time %}<span>▶ {{ op.start_time.strftime('%H:%M') }}</span>{% endif %}
+                {% if op.end_time %}<span>■ {{ op.end_time.strftime('%H:%M') }}</span>{% endif %}
+                {% if op.duration_minutes %}<span>⏱ {{ op.duration_minutes }} min</span>{% endif %}
+                {% if op.sku_count %}<span>📦 {{ op.sku_count }} SKUs</span>{% endif %}
+                {% if op.unit_name %}<span>🏭 {{ op.unit_name }}</span>{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center; padding: 80px; color:#555;">
+        <div style="font-size:4em;">📭</div>
+        <div style="font-size:1.4em; margin-top:16px;">Nenhuma operação hoje</div>
+    </div>
+    {% endif %}
+
+    <div class="footer-bar">Atualiza a cada 60 segundos &nbsp;|&nbsp; LOGTRACK Monitor de Separação</div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2,'0');
+            const m = String(now.getMinutes()).padStart(2,'0');
+            const s = String(now.getSeconds()).padStart(2,'0');
+            document.getElementById('clock').textContent = h + ':' + m + ':' + s;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+        setTimeout(() => location.reload(), 60000);
+    </script>
+</body>
+</html>

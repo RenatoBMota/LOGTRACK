@@ -2,6 +2,37 @@
 {% block content %}
 <div style="padding: 20px;">
     <h2>⚠️ Ocorrências</h2>
+
+    <!-- Gráfico por tipo -->
+    {% if tipo_labels %}
+    <div class="card mb-4" style="padding: 20px;">
+        <h5 style="font-weight:700; margin-bottom:16px;">📊 Ocorrências por Tipo</h5>
+        <div class="row align-items-center">
+            <div class="col-md-5">
+                <canvas id="chartTipos" height="200"></canvas>
+            </div>
+            <div class="col-md-7">
+                <canvas id="chartBarTipos" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+    <script src="/static/vendor/chartjs/chart.js"></script>
+    <script>
+    const tipoLabels = {{ tipo_labels | tojson }};
+    const tipoData   = {{ tipo_data | tojson }};
+    const cores = ['#e74c3c','#f39c12','#3498db','#2ecc71','#9b59b6','#1abc9c','#e67e22','#34495e'];
+    new Chart(document.getElementById('chartTipos'), {
+        type: 'doughnut',
+        data: { labels: tipoLabels, datasets: [{ data: tipoData, backgroundColor: cores }] },
+        options: { responsive: true, plugins: { legend: { position: 'right' } } }
+    });
+    new Chart(document.getElementById('chartBarTipos'), {
+        type: 'bar',
+        data: { labels: tipoLabels, datasets: [{ label: 'Qtd', data: tipoData, backgroundColor: cores }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+    </script>
+    {% endif %}
     
     <!-- ✅ MELHORIA #5: Filtros -->
     <div class="card mb-3" style="background: #f8f9fa; padding: 15px;">
