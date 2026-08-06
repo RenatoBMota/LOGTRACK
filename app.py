@@ -550,61 +550,48 @@ def operation():
     if not has_permission('operation'):
         return redirect(url_for('dashboard'))
     
+    from datetime import datetime, date
     separators = Separator.query.filter_by(active=True).all()
     units = OperationUnit.query.filter_by(active=True).all()
     locations = OperationLocation.query.filter_by(active=True).all()
     occurrence_types = OccurrenceType.query.filter_by(active=True).all()
-    all_operations = LoadOperation.query.order_by(LoadOperation.created_date.desc()).all()
-    
-    # ✅ NOVO: Passar data de hoje como padrão
-    from datetime import datetime, date
+
     today = date.today()
     today_str = today.strftime('%Y-%m-%d')
-    
-    # ✅ CORREÇÃO: Filtrar por INTERVALO de datas (De: / Até:), STATUS e TIPO
-    filter_date_from_str = ''
-    filter_date_to_str = ''
+
+    # Defaults: show today only on GET
+    filter_date_from_str = today_str
+    filter_date_to_str = today_str
     filter_status = ''
     filter_type = ''
-    
+
     if request.method == 'POST':
-        filter_date_from_str = request.form.get('filter_date_from', '')
-        filter_date_to_str = request.form.get('filter_date_to', '')
+        filter_date_from_str = request.form.get('filter_date_from', today_str)
+        filter_date_to_str = request.form.get('filter_date_to', today_str)
         filter_status = request.form.get('filter_status', '')
         filter_type = request.form.get('filter_type', '')
-        
-        try:
-            from datetime import datetime
-            # ✅ CORRIGIDO: Usar apenas IF (não elif) para filtros independentes
-            if filter_date_from_str and filter_date_to_str:
-                filter_date_from = datetime.strptime(filter_date_from_str, '%Y-%m-%d').date()
-                filter_date_to = datetime.strptime(filter_date_to_str, '%Y-%m-%d').date()
-                all_operations = [op for op in all_operations 
-                                if op.start_time and 
-                                filter_date_from <= op.start_time.date() <= filter_date_to]
-            else:
-                if filter_date_from_str:
-                    filter_date_from = datetime.strptime(filter_date_from_str, '%Y-%m-%d').date()
-                    all_operations = [op for op in all_operations 
-                                    if op.created_date and op.created_date.date() >= filter_date_from]
-                if filter_date_to_str:
-                    filter_date_to = datetime.strptime(filter_date_to_str, '%Y-%m-%d').date()
-                    all_operations = [op for op in all_operations 
-                                    if op.created_date and op.created_date.date() <= filter_date_to]
-        except:
-            pass
-        
-        # ✅ Filtrar por STATUS (independente de data)
-        if filter_status:
-            all_operations = [op for op in all_operations if op.status == filter_status]
-        
-        # ✅ Filtrar por TIPO (independente de data)
-        if filter_type:
-            all_operations = [op for op in all_operations if op.operation_type == filter_type]
 
-    
-    # ✅ MELHORIA #3: Buscar ocorrências para passar ao template
-    all_occurrences = Occurrence.query.all()
+    # Build query with date filter pushed to DB (fast)
+    try:
+        date_from = datetime.strptime(filter_date_from_str, '%Y-%m-%d')
+        date_to = datetime.strptime(filter_date_to_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        q = LoadOperation.query.filter(
+            LoadOperation.created_date >= date_from,
+            LoadOperation.created_date <= date_to
+        )
+    except Exception:
+        q = LoadOperation.query
+
+    if filter_status:
+        q = q.filter(LoadOperation.status == filter_status)
+    if filter_type:
+        q = q.filter(LoadOperation.operation_type == filter_type)
+
+    all_operations = q.order_by(LoadOperation.created_date.desc()).all()
+
+    # Load only occurrences for the operations currently shown
+    op_ids = [op.id for op in all_operations]
+    all_occurrences = Occurrence.query.filter(Occurrence.load_operation_id.in_(op_ids)).all() if op_ids else []
     
     not_started = [op for op in all_operations if op.status == 'Não Iniciado']
     in_progress = [op for op in all_operations if op.status == 'Em Andamento']
